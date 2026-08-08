@@ -1,0 +1,734 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Saathi — Complete UI Prototype</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --primary: #1E3A8A; --primary-light: #3B82F6; --primary-bg: #EFF6FF;
+    --success: #16A34A; --success-bg: #F0FDF4;
+    --warning: #D97706; --warning-bg: #FFFBEB;
+    --danger: #DC2626; --danger-bg: #FEF2F2;
+    --gray-50: #F9FAFB; --gray-100: #F3F4F6; --gray-200: #E5E7EB;
+    --gray-400: #9CA3AF; --gray-600: #4B5563; --gray-800: #1F2937; --gray-900: #111827;
+    --radius: 12px; --radius-sm: 8px;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+    background: #F1F5F9; color: var(--gray-900); line-height: 1.5;
+    -webkit-font-smoothing: antialiased;
+  }
+  .app { display: flex; min-height: 100vh; }
+  
+  /* Sidebar */
+  .sidebar {
+    width: 260px; background: white; border-right: 1px solid var(--gray-200);
+    display: flex; flex-direction: column; position: fixed; top: 0; left: 0; bottom: 0;
+    z-index: 40; transition: transform 0.2s;
+  }
+  .sidebar-logo { padding: 20px 24px; border-bottom: 1px solid var(--gray-200); }
+  .sidebar-logo h1 { font-size: 20px; font-weight: 800; color: var(--primary); }
+  .sidebar-logo span { font-size: 11px; color: var(--gray-400); display: block; }
+  .sidebar-nav { flex: 1; padding: 12px 0; overflow-y: auto; }
+  .nav-section { padding: 0 16px; margin-bottom: 4px; }
+  .nav-section-title { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; color: var(--gray-400); padding: 8px 8px 4px; }
+  .nav-item {
+    display: flex; align-items: center; gap: 10px; padding: 10px 16px;
+    font-size: 13px; font-weight: 500; cursor: pointer; border-radius: var(--radius-sm);
+    margin: 2px 8px; color: var(--gray-600); transition: all 0.15s; border: none;
+    background: none; width: calc(100% - 16px); text-align: left; font-family: inherit;
+  }
+  .nav-item:hover { background: var(--gray-100); }
+  .nav-item.active { background: var(--primary-bg); color: var(--primary); font-weight: 600; }
+  .nav-item .icon { font-size: 16px; width: 20px; text-align: center; flex-shrink: 0; }
+  .nav-badge { font-size: 10px; background: var(--danger); color: white; border-radius: 99px; padding: 1px 6px; margin-left: auto; }
+  
+  /* Main */
+  .main {
+    flex: 1; margin-left: 260px; padding: 32px; max-width: 1200px;
+  }
+  
+  /* Page */
+  .page { display: none; }
+  .page.active { display: block; }
+  .page-header { margin-bottom: 24px; }
+  .page-header h2 { font-size: 24px; font-weight: 800; }
+  .page-header p { font-size: 14px; color: var(--gray-600); margin-top: 4px; }
+  
+  /* Cards */
+  .card {
+    background: white; border: 1px solid var(--gray-200); border-radius: var(--radius);
+    padding: 20px; margin-bottom: 16px;
+  }
+  .stat-card {
+    background: white; border: 1px solid var(--gray-200); border-radius: var(--radius);
+    padding: 16px 20px; display: flex; flex-direction: column; gap: 4px;
+  }
+  .stat-card .label { font-size: 12px; color: var(--gray-400); font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; }
+  .stat-card .value { font-size: 28px; font-weight: 800; }
+  .stat-card .sub { font-size: 12px; color: var(--gray-600); }
+  
+  /* Buttons */
+  .btn {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 10px 20px; border-radius: var(--radius-sm); font-weight: 600;
+    font-size: 14px; cursor: pointer; border: none; font-family: inherit;
+    transition: all 0.15s;
+  }
+  .btn-primary { background: var(--primary); color: white; }
+  .btn-primary:hover { background: #1E40AF; }
+  .btn-secondary { background: white; color: var(--gray-800); border: 1px solid var(--gray-200); }
+  .btn-secondary:hover { background: var(--gray-50); }
+  .btn-danger { background: var(--danger); color: white; }
+  .btn-sm { padding: 6px 14px; font-size: 12px; }
+  .btn-lg { padding: 14px 28px; font-size: 16px; }
+  
+  /* Grid */
+  .grid-2 { display: grid; grid-template-columns: repeat(2, 1fr); gap: 16px; }
+  .grid-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
+  .grid-4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; }
+  
+  /* Badges */
+  .badge { font-size: 11px; padding: 2px 10px; border-radius: 99px; font-weight: 600; display: inline-flex; align-items: center; gap: 4px; }
+  .badge-success { background: var(--success-bg); color: var(--success); }
+  .badge-warning { background: var(--warning-bg); color: var(--warning); }
+  .badge-danger { background: var(--danger-bg); color: var(--danger); }
+  .badge-info { background: var(--primary-bg); color: var(--primary); }
+  
+  /* Progress bar */
+  .progress { height: 6px; background: var(--gray-200); border-radius: 99px; overflow: hidden; }
+  .progress-fill { height: 100%; border-radius: 99px; transition: width 0.3s; }
+  .progress-fill.blue { background: var(--primary); }
+  .progress-fill.green { background: var(--success); }
+  .progress-fill.red { background: var(--danger); }
+  
+  /* Steps */
+  .steps { display: flex; gap: 8px; align-items: center; margin-bottom: 24px; }
+  .step { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--gray-400); }
+  .step.active { color: var(--primary); font-weight: 600; }
+  .step.done { color: var(--success); }
+  .step-circle {
+    width: 28px; height: 28px; border-radius: 50%; border: 2px solid var(--gray-200);
+    display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 700;
+    flex-shrink: 0;
+  }
+  .step.active .step-circle { border-color: var(--primary); background: var(--primary-bg); color: var(--primary); }
+  .step.done .step-circle { border-color: var(--success); background: var(--success-bg); color: var(--success); }
+  .step-line { flex: 1; height: 2px; background: var(--gray-200); min-width: 40px; }
+  .step.done + .step-line { background: var(--success); }
+  
+  /* Input / Select */
+  .input, .select {
+    width: 100%; padding: 10px 14px; border: 1px solid var(--gray-200);
+    border-radius: var(--radius-sm); font-size: 14px; font-family: inherit;
+    background: white; transition: border-color 0.15s;
+  }
+  .input:focus, .select:focus { outline: none; border-color: var(--primary); box-shadow: 0 0 0 3px rgba(59,130,246,0.1); }
+  label { font-size: 13px; font-weight: 600; color: var(--gray-600); display: block; margin-bottom: 4px; }
+  
+  /* Selectable card */
+  .sel-card {
+    padding: 14px; border: 2px solid var(--gray-200); border-radius: var(--radius-sm);
+    cursor: pointer; transition: all 0.15s; background: white;
+  }
+  .sel-card:hover { border-color: var(--primary-light); }
+  .sel-card.selected { border-color: var(--primary); background: var(--primary-bg); }
+  
+  /* Table */
+  .table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  .table th { text-align: left; padding: 10px 12px; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: var(--gray-400); border-bottom: 2px solid var(--gray-200); }
+  .table td { padding: 12px; border-bottom: 1px solid var(--gray-100); }
+  .table tr:hover td { background: var(--gray-50); }
+  
+  /* Disclaimer */
+  .disclaimer {
+    background: var(--warning-bg); border: 1px solid #FCD34D;
+    border-radius: var(--radius-sm); padding: 12px 16px; font-size: 12px;
+    color: #92400E; margin-top: 20px;
+  }
+  
+  /* Toast */
+  .toast {
+    position: fixed; bottom: 24px; right: 24px; background: var(--gray-900);
+    color: white; padding: 12px 20px; border-radius: var(--radius-sm);
+    font-size: 13px; font-weight: 500; z-index: 100;
+    animation: slideUp 0.3s ease;
+  }
+  @keyframes slideUp { from { opacity: 0; transform: translateY(16px); } to { opacity: 1; transform: translateY(0); } }
+  
+  .hidden { display: none !important; }
+  @media (max-width: 768px) {
+    .sidebar { transform: translateX(-260px); }
+    .sidebar.open { transform: translateX(0); }
+    .main { margin-left: 0; padding: 20px; }
+    .grid-2, .grid-3, .grid-4 { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+
+<div class="app">
+  <!-- Sidebar Navigation -->
+  <aside class="sidebar" id="sidebar">
+    <div class="sidebar-logo">
+      <h1>Saathi</h1>
+      <span>Visa Companion</span>
+    </div>
+    <nav class="sidebar-nav">
+      <div class="nav-section-title">Main</div>
+      <button class="nav-item active" data-page="home"><span class="icon">🏠</span>Home</button>
+      
+      <div class="nav-section-title">Features</div>
+      <button class="nav-item" data-page="f1"><span class="icon">⏱️</span>Visa Tracker<span class="nav-badge" id="nav-badge-f1" style="display:none">!</span></button>
+      <button class="nav-item" data-page="f2"><span class="icon">🧮</span>Points Calculator</button>
+      <button class="nav-item" data-page="f3"><span class="icon">📋</span>Document Checklist</button>
+      <button class="nav-item" data-page="f4"><span class="icon">📝</span>Form Helper</button>
+      
+      <div class="nav-section-title">Phase 2</div>
+      <button class="nav-item" data-page="f5"><span class="icon">📰</span>News & Events</button>
+      <button class="nav-item" data-page="f6"><span class="icon">🤝</span>Agent Connect</button>
+    </nav>
+    <div style="padding:16px;border-top:1px solid var(--gray-200);font-size:11px;color:var(--gray-400)">
+      Saathi provides information only. Not migration advice.
+    </div>
+  </aside>
+  
+  <!-- Main Content -->
+  <main class="main" id="main-content">
+    <!-- HOME -->
+    <div class="page active" id="page-home">
+      <div class="page-header">
+        <h2>Welcome back, Prabin</h2>
+        <p>Here's your visa summary and what needs attention.</p>
+      </div>
+      
+      <div class="grid-3">
+        <div class="stat-card">
+          <span class="label">Days Remaining</span>
+          <span class="value" style="color:var(--success)">247</span>
+          <span class="sub">485 Temporary Graduate · Expires 15 Mar 2027</span>
+        </div>
+        <div class="stat-card">
+          <span class="label">Documents Ready</span>
+          <span class="value" style="color:var(--primary)">3/8</span>
+          <span class="sub">485 Post-Study Work checklist</span>
+        </div>
+        <div class="stat-card">
+          <span class="label">Points Score</span>
+          <span class="value">75</span>
+          <span class="sub">189 cutoff: 85 · 190 cutoff: 70</span>
+        </div>
+      </div>
+      
+      <div class="card" style="margin-top:20px">
+        <h3 style="font-size:16px;font-weight:700;margin-bottom:16px">Quick Actions</h3>
+        <div class="grid-2">
+          <div class="sel-card" onclick="navigateTo('f1')" style="cursor:pointer">
+            <div style="font-size:20px;margin-bottom:4px">⏱️</div>
+            <div style="font-weight:600;font-size:14px">Add Another Visa</div>
+            <div style="font-size:12px;color:var(--gray-600)">Track multiple visas with reminders</div>
+          </div>
+          <div class="sel-card" onclick="navigateTo('f2')" style="cursor:pointer">
+            <div style="font-size:20px;margin-bottom:4px">🧮</div>
+            <div style="font-weight:600;font-size:14px">Recalculate Points</div>
+            <div style="font-size:12px;color:var(--gray-600)">Check latest invitation round cutoffs</div>
+          </div>
+          <div class="sel-card" onclick="navigateTo('f3')" style="cursor:pointer">
+            <div style="font-size:20px;margin-bottom:4px">📋</div>
+            <div style="font-weight:600;font-size:14px">Continue Checklist</div>
+            <div style="font-size:12px;color:var(--gray-600)">5 documents remaining</div>
+          </div>
+          <div class="sel-card" onclick="navigateTo('f4')" style="cursor:pointer">
+            <div style="font-size:20px;margin-bottom:4px">📝</div>
+            <div style="font-weight:600;font-size:14px">Fill Form 80</div>
+            <div style="font-size:12px;color:var(--gray-600)">Upload documents to auto-fill</div>
+          </div>
+        </div>
+      </div>
+      
+      <div class="card">
+        <h3 style="font-size:16px;font-weight:700;margin-bottom:16px">Upcoming Reminders</h3>
+        <div style="display:flex;flex-direction:column;gap:12px">
+          <div style="display:flex;align-items:center;justify-content:space-between;padding:10px 14px;background:var(--gray-50);border-radius:8px">
+            <div><span style="font-weight:600">180-day reminder</span><br><span style="font-size:12px;color:var(--gray-600)">485 visa expiry milestone</span></div>
+            <span class="badge badge-info">Sep 2026</span>
+          </div>
+          <div style="display:flex;align-items:center;justify-content:space-between;padding:10px 14px;background:var(--gray-50);border-radius:8px">
+            <div><span style="font-weight:600">90-day reminder</span><br><span style="font-size:12px;color:var(--gray-600)">Time to prepare next application</span></div>
+            <span class="badge badge-warning">Dec 2026</span>
+          </div>
+          <div style="display:flex;align-items:center;justify-content:space-between;padding:10px 14px;background:#FEF2F2;border-radius:8px">
+            <div><span style="font-weight:600;color:var(--danger)">30-day warning</span><br><span style="font-size:12px;color:var(--gray-600)">Urgent — apply for next visa or bridging</span></div>
+            <span class="badge badge-danger">Feb 2027</span>
+          </div>
+        </div>
+      </div>
+    </div>
+    
+    <!-- F1: VISA TRACKER -->
+    <div class="page" id="page-f1">
+      <div class="page-header">
+        <h2>Visa Tracker</h2>
+        <p>Track expiry dates, conditions, and get reminders before every deadline.</p>
+      </div>
+      
+      <div id="f1-dashboard">
+        <div class="card" style="text-align:center">
+          <div style="width:160px;height:160px;border-radius:50%;background:conic-gradient(var(--success) 0 82%, var(--gray-200) 82% 100%);display:flex;align-items:center;justify-content:center;margin:0 auto">
+            <div style="width:130px;height:130px;border-radius:50%;background:white;display:flex;flex-direction:column;align-items:center;justify-content:center">
+              <span style="font-size:40px;font-weight:800;color:var(--success)">247</span>
+              <span style="font-size:12px;color:var(--gray-600)">days remaining</span>
+            </div>
+          </div>
+          <div style="margin-top:12px">
+            <span class="badge badge-success">485 — Temporary Graduate</span>
+            <p style="font-size:13px;color:var(--gray-600);margin-top:4px">Granted: 15 Mar 2025 · Expires: 15 Mar 2027</p>
+          </div>
+        </div>
+        
+        <div class="grid-2">
+          <div class="card">
+            <h3 style="font-size:14px;font-weight:700;margin-bottom:12px">Visa Conditions</h3>
+            <div style="display:flex;flex-direction:column;gap:10px;font-size:13px">
+              <div style="display:flex;align-items:center;gap:8px"><span style="color:var(--success)">✅</span> 8107 — Full work rights</div>
+              <div style="display:flex;align-items:center;gap:8px"><span style="color:var(--success)">✅</span> 8501 — Maintain OSHC health cover</div>
+              <div style="display:flex;align-items:center;gap:8px"><span style="color:var(--warning)">⚠️</span> 8503 — No further stay (may apply)</div>
+            </div>
+          </div>
+          <div class="card">
+            <h3 style="font-size:14px;font-weight:700;margin-bottom:12px">Next Steps</h3>
+            <ol style="font-size:13px;padding-left:20px;display:flex;flex-direction:column;gap:8px;color:var(--gray-600)">
+              <li>Apply for 189 or 190 before March 2027</li>
+              <li>Check points: 75 currently (190 cutoff: 70)</li>
+              <li>Gather employment references (last 5 years)</li>
+              <li>Book English test if > 3 years old</li>
+            </ol>
+          </div>
+        </div>
+        
+        <div style="display:flex;gap:12px;margin-top:8px">
+          <button class="btn btn-secondary">Edit Details</button>
+          <button class="btn btn-primary" onclick="document.getElementById('f1-add-visa').classList.toggle('hidden')">+ Add Another Visa</button>
+        </div>
+      </div>
+      
+      <div id="f1-add-visa" class="hidden card" style="margin-top:16px">
+        <h3 style="font-size:16px;font-weight:700;margin-bottom:4px">Add a Visa</h3>
+        <div class="steps">
+          <div class="step done"><span class="step-circle">1</span>Select</div>
+          <div class="step-line"></div>
+          <div class="step active"><span class="step-circle">2</span>Dates</div>
+          <div class="step-line"></div>
+          <div class="step"><span class="step-circle">3</span>Confirm</div>
+        </div>
+        <div class="grid-2" style="margin-bottom:16px">
+          <div class="sel-card selected"><b>500</b> Student</div>
+          <div class="sel-card"><b>485</b> Temporary Graduate</div>
+          <div class="sel-card"><b>482</b> Skills in Demand</div>
+          <div class="sel-card"><b>189/190</b> Skilled PR</div>
+          <div class="sel-card"><b>491</b> Skilled Regional</div>
+          <div class="sel-card"><b>BVA/B/C</b> Bridging</div>
+        </div>
+        <div style="display:flex;gap:12px">
+          <div style="flex:1"><label>Grant Date</label><input type="date" class="input"></div>
+          <div style="flex:1"><label>Expiry Date</label><input type="date" class="input"></div>
+        </div>
+        <button class="btn btn-primary btn-lg" style="margin-top:16px;width:100%">Save Visa</button>
+      </div>
+    </div>
+    
+    <!-- F2: POINTS CALCULATOR -->
+    <div class="page" id="page-f2">
+      <div class="page-header">
+        <h2>Points Calculator</h2>
+        <p>Estimate your skilled migration points before paying an agent.</p>
+      </div>
+      
+      <div id="f2-step" class="card">
+        <div class="steps" style="margin-bottom:24px">
+          <div class="step done"><span class="step-circle">✓</span>Age</div><div class="step-line"></div>
+          <div class="step done"><span class="step-circle">✓</span>English</div><div class="step-line"></div>
+          <div class="step done"><span class="step-circle">✓</span>Work</div><div class="step-line"></div>
+          <div class="step active"><span class="step-circle">4</span>Education</div><div class="step-line"></div>
+          <div class="step"><span class="step-circle">5</span>Study</div><div class="step-line"></div>
+          <div class="step"><span class="step-circle">6</span>Partner</div>
+        </div>
+        
+        <h3 style="font-size:16px;font-weight:700;margin-bottom:16px">Step 4: Education Qualification</h3>
+        <div style="display:flex;flex-direction:column;gap:8px;margin-bottom:16px">
+          <div class="sel-card selected" style="display:flex;justify-content:space-between"><span>Doctorate (PhD)</span><span style="font-weight:700;color:var(--primary)">20 pts</span></div>
+          <div class="sel-card" style="display:flex;justify-content:space-between"><span>Bachelor Degree (incl. Honours/Masters)</span><span style="font-weight:700;color:var(--primary)">15 pts</span></div>
+          <div class="sel-card" style="display:flex;justify-content:space-between"><span>Diploma or Trade Qualification</span><span style="font-weight:700;color:var(--primary)">10 pts</span></div>
+          <div class="sel-card" style="display:flex;justify-content:space-between"><span>No recognised qualification</span><span style="font-weight:700;color:var(--danger)">0 pts</span></div>
+        </div>
+        <div style="background:var(--success-bg);padding:10px 14px;border-radius:8px;display:flex;align-items:center;gap:8px">
+          <span style="font-size:12px;color:var(--gray-600)">Running total:</span>
+          <span style="font-size:20px;font-weight:800;color:var(--success)">55 points</span>
+        </div>
+        <div style="display:flex;gap:12px;margin-top:16px">
+          <button class="btn btn-secondary" style="flex:1">← Back</button>
+          <button class="btn btn-primary" style="flex:1" onclick="showF2Results()">Next →</button>
+        </div>
+      </div>
+      
+      <div id="f2-results" style="display:none">
+        <div class="card" style="text-align:center">
+          <div style="font-size:64px;font-weight:800;color:var(--primary)">75</div>
+          <div style="font-size:14px;color:var(--gray-600)">points out of 100</div>
+          <div class="progress" style="margin-top:12px"><div class="progress-fill blue" style="width:75%"></div></div>
+        </div>
+        <div class="grid-2">
+          <div class="card">
+            <h3 style="font-size:14px;font-weight:700;margin-bottom:12px">Breakdown</h3>
+            <table class="table"><tbody>
+              <tr><td>Age (25-32)</td><td style="font-weight:700;text-align:right">30</td></tr>
+              <tr><td>English (IELTS 8.0+)</td><td style="font-weight:700;text-align:right">20</td></tr>
+              <tr><td>Overseas Work (5 yrs)</td><td style="font-weight:700;text-align:right">10</td></tr>
+              <tr><td>AU Work (1 yr)</td><td style="font-weight:700;text-align:right">5</td></tr>
+              <tr><td>Education (PhD)</td><td style="font-weight:700;text-align:right">20</td></tr>
+            </tbody></table>
+          </div>
+          <div class="card" style="background:var(--primary-bg);border-color:#BFDBFE">
+            <h3 style="font-size:14px;font-weight:700;margin-bottom:12px">Latest Invitation Rounds</h3>
+            <table class="table"><tbody>
+              <tr><td>189 (Jun 2026)</td><td style="font-weight:700;text-align:right">85+ pts</td></tr>
+              <tr><td>190 NSW (Jun 2026)</td><td style="font-weight:700;text-align:right">70+ pts</td></tr>
+              <tr><td>491 Regional (Jun 2026)</td><td style="font-weight:700;text-align:right">65+ pts</td></tr>
+            </tbody></table>
+            <p style="font-size:12px;color:var(--gray-600);margin-top:8px">
+              💡 With 75 points, you clear the 190 cutoff. For 189, gain +10 pts by retaking IELTS or completing NAATI CCL.
+            </p>
+          </div>
+        </div>
+        <div style="display:flex;gap:12px;margin-top:8px">
+          <button class="btn btn-secondary">Save Result</button>
+          <button class="btn btn-primary">Share</button>
+        </div>
+      </div>
+      
+      <div class="disclaimer">⚠️ This is an estimate only. For a formal assessment, consult a MARA-registered migration agent (verify at mara.gov.au using their MARN).</div>
+    </div>
+    
+    <!-- F3: DOCUMENT CHECKLIST -->
+    <div class="page" id="page-f3">
+      <div class="page-header">
+        <h2>Document Checklist</h2>
+        <p>Generate a personalised document checklist for any supported visa type.</p>
+      </div>
+      
+      <div id="f3-select" class="card">
+        <h3 style="font-size:16px;font-weight:700;margin-bottom:12px">Select your visa type</h3>
+        <div class="grid-2">
+          <div class="sel-card selected" onclick="showF3Questions()"><b>485</b> Temporary Graduate<br><span style="font-size:12px;color:var(--gray-600)">Post-study work visa</span></div>
+          <div class="sel-card"><b>500</b> Student Visa<br><span style="font-size:12px;color:var(--gray-600)">Extension or new application</span></div>
+          <div class="sel-card"><b>189</b> Skilled Independent<br><span style="font-size:12px;color:var(--gray-600)">Points-based PR</span></div>
+          <div class="sel-card"><b>190</b> Skilled Nominated<br><span style="font-size:12px;color:var(--gray-600)">State-nominated PR</span></div>
+          <div class="sel-card"><b>491</b> Skilled Regional<br><span style="font-size:12px;color:var(--gray-600)">Provisional regional</span></div>
+          <div class="sel-card"><b>482</b> TSS / Skills in Demand<br><span style="font-size:12px;color:var(--gray-600)">Employer-sponsored</span></div>
+        </div>
+      </div>
+      
+      <div id="f3-questions" class="card" style="display:none">
+        <h3 style="font-size:16px;font-weight:700;margin-bottom:12px">485 — Temporary Graduate</h3>
+        <div style="margin-bottom:16px">
+          <label>Which stream?</label>
+          <div class="sel-card selected" style="margin-top:8px"><b>Post-Study Work</b> — No skills assessment needed</div>
+          <div class="sel-card" style="margin-top:8px"><b>Graduate Work</b> — Skills assessment required</div>
+        </div>
+        <div style="margin-bottom:16px">
+          <label>Are you applying from inside Australia?</label>
+          <div class="sel-card selected" style="margin-top:8px"><b>Yes</b> — I am currently in Australia</div>
+          <div class="sel-card" style="margin-top:8px"><b>No</b> — I am applying from overseas</div>
+        </div>
+        <div style="margin-bottom:16px">
+          <label>Are you including a partner?</label>
+          <div class="sel-card" style="margin-top:8px"><b>No</b> — Applying alone</div>
+          <div class="sel-card selected" style="margin-top:8px"><b>Yes</b> — Including partner in application</div>
+        </div>
+        <button class="btn btn-primary btn-lg" style="width:100%" onclick="showF3Checklist()">Generate Checklist</button>
+      </div>
+      
+      <div id="f3-checklist" style="display:none">
+        <div class="card">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+            <h3 style="font-size:16px;font-weight:700">485 Post-Study Work Checklist</h3>
+            <span class="badge badge-success">3 of 9 completed</span>
+          </div>
+          <div class="progress" style="margin-bottom:8px"><div class="progress-fill green" style="width:33%"></div></div>
+          <p style="font-size:12px;color:var(--gray-600);text-align:center">33% complete</p>
+        </div>
+        
+        <div class="card">
+          <h3 style="font-size:13px;font-weight:700;color:var(--gray-600);text-transform:uppercase;letter-spacing:0.05em;margin-bottom:12px">Identity Documents</h3>
+          <div style="display:flex;align-items:center;gap:12px;padding:12px 0;border-bottom:1px solid var(--gray-100)">
+            <span style="color:var(--success);font-weight:700">✓</span>
+            <div style="flex:1"><div style="font-weight:600">Certified copy of passport</div><div style="font-size:12px;color:var(--gray-600)">Bio-data page — certified by JP or notary</div></div>
+          </div>
+          <div style="display:flex;align-items:center;gap:12px;padding:12px 0;border-bottom:1px solid var(--gray-100)">
+            <span style="color:var(--success);font-weight:700">✓</span>
+            <div style="flex:1"><div style="font-weight:600">Birth certificate</div><div style="font-size:12px;color:var(--gray-600)">Certified English translation if not in English</div></div>
+          </div>
+          <div style="display:flex;align-items:center;gap:12px;padding:12px 0">
+            <span style="color:var(--gray-400);font-size:18px">○</span>
+            <div style="flex:1"><div style="font-weight:600">Recent passport photo</div><div style="font-size:12px;color:var(--gray-600)">Within 6 months, 35-40mm wide</div></div>
+          </div>
+        </div>
+        
+        <div class="card">
+          <h3 style="font-size:13px;font-weight:700;color:var(--gray-600);text-transform:uppercase;letter-spacing:0.05em;margin-bottom:12px">Study & Qualifications</h3>
+          <div style="display:flex;align-items:center;gap:12px;padding:12px 0;border-bottom:1px solid var(--gray-100)">
+            <span style="color:var(--success);font-weight:700">✓</span>
+            <div style="flex:1"><div style="font-weight:600">Course completion letter</div><div style="font-size:12px;color:var(--gray-600)">From your Australian education provider</div></div>
+          </div>
+          <div style="display:flex;align-items:center;gap:12px;padding:12px 0;border-bottom:1px solid var(--gray-100)">
+            <span style="color:var(--gray-400);font-size:18px">○</span>
+            <div style="flex:1"><div style="font-weight:600">Academic transcript</div><div style="font-size:12px;color:var(--gray-600)">Official transcript from your institution</div></div>
+          </div>
+          <div style="display:flex;align-items:center;gap:12px;padding:12px 0;border-bottom:1px solid var(--gray-100)">
+            <span style="color:var(--gray-400);font-size:18px">○</span>
+            <div style="flex:1"><div style="font-weight:600">English test result</div><div style="font-size:12px;color:var(--gray-600)">IELTS/PTE — must be within 3 years</div></div>
+          </div>
+          <div style="display:flex;align-items:center;gap:12px;padding:12px 0;border-bottom:1px solid var(--gray-100)">
+            <span style="color:var(--gray-400);font-size:18px">○</span>
+            <div style="flex:1"><div style="font-weight:600">AFP Police Check</div><div style="font-size:12px;color:var(--gray-600)">Australian Federal Police — valid 12 months</div></div>
+          </div>
+          <div style="display:flex;align-items:center;gap:12px;padding:12px 0;border-bottom:1px solid var(--gray-100)">
+            <span style="color:var(--gray-400);font-size:18px">○</span>
+            <div style="flex:1"><div style="font-weight:600">OSHC Certificate</div><div style="font-size:12px;color:var(--gray-600)">Overseas Student Health Cover proof</div></div>
+          </div>
+          <div style="display:flex;align-items:center;gap:12px;padding:12px 0">
+            <span style="color:var(--gray-400);font-size:18px">○</span>
+            <div style="flex:1"><div style="font-weight:600">Partner documents</div><div style="font-size:12px;color:var(--gray-600)">Relationship evidence + partner ID + English</div></div>
+          </div>
+        </div>
+        
+        <div style="display:flex;gap:12px;margin-top:8px">
+          <button class="btn btn-secondary">🖨 Print</button>
+          <button class="btn btn-primary">📤 Export PDF</button>
+        </div>
+      </div>
+    </div>
+    
+    <!-- F4: FORM HELPER -->
+    <div class="page" id="page-f4">
+      <div class="page-header">
+        <h2>Form Helper</h2>
+        <p>Understand every field on Australian immigration forms, or upload documents to auto-fill.</p>
+      </div>
+      
+      <div id="f4-select" class="card">
+        <h3 style="font-size:16px;font-weight:700;margin-bottom:4px">Which form are you working on?</h3>
+        <p style="font-size:13px;color:var(--gray-600);margin-bottom:16px">Select a form for field-by-field explanations, or upload documents to auto-fill it.</p>
+        <div class="grid-2">
+          <div class="sel-card selected" onclick="showF4Explainer()">
+            <div style="font-weight:700;font-size:15px">📄 Form 80</div>
+            <div style="font-size:12px;color:var(--gray-600);margin-top:2px">Personal Particulars — 127 fields, used across most visa types</div>
+          </div>
+          <div class="sel-card">
+            <div style="font-weight:700;font-size:15px">📄 Form 1221</div>
+            <div style="font-size:12px;color:var(--gray-600);margin-top:2px">Additional Particulars — 85 fields, commonly required</div>
+          </div>
+        </div>
+        <div class="sel-card" style="margin-top:12px;border-style:dashed;border-color:var(--primary);background:var(--primary-bg)">
+          <div style="font-weight:700;font-size:15px;color:var(--primary)">📤 Upload Documents to Auto-Fill</div>
+          <div style="font-size:12px;color:var(--gray-600);margin-top:2px">Upload passport, payslips, and bank statements — Saathi fills the form for you (requires manaslu service)</div>
+        </div>
+      </div>
+      
+      <div id="f4-explainer" style="display:none">
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:16px">
+          <button class="btn btn-secondary btn-sm" onclick="document.getElementById('f4-explainer').style.display='none';document.getElementById('f4-select').style.display='block'">← Back</button>
+          <span style="font-weight:600">Form 80 — Question 4 of 127</span>
+        </div>
+        
+        <div class="card">
+          <h2 style="font-size:22px;font-weight:800;margin-bottom:4px">Date of Birth</h2>
+          <p style="font-size:14px;color:var(--gray-600);margin-bottom:20px">Enter your date of birth in DD/MM/YYYY format as shown on your passport or birth certificate. The Department of Home Affairs cross-checks this field against your passport data.</p>
+          
+          <div style="background:var(--gray-50);border-radius:8px;padding:14px;margin-bottom:12px">
+            <h4 style="font-size:13px;font-weight:700;margin-bottom:4px">What this means</h4>
+            <p style="font-size:13px;color:var(--gray-600);line-height:1.7">This is your date of birth as recorded on your official identity documents. Use the Australian date format (day/month/year). Do not use the US format (month/day/year) as this will cause errors in your application.</p>
+          </div>
+          
+          <div style="background:var(--warning-bg);border:1px solid #FCD34D;border-radius:8px;padding:14px;margin-bottom:12px">
+            <h4 style="font-size:13px;font-weight:700;margin-bottom:4px">⚠️ Common Mistakes</h4>
+            <ul style="font-size:13px;padding-left:20px;display:flex;flex-direction:column;gap:4px;color:var(--gray-600)">
+              <li>Using MM/DD/YYYY format instead of DD/MM/YYYY</li>
+              <li>Date differs from passport — DHA cross-checks this field</li>
+              <li>Entering a date for a different family member</li>
+            </ul>
+          </div>
+          
+          <div style="font-size:12px;color:var(--gray-400);border-top:1px solid var(--gray-200);padding-top:12px">
+            📎 Source: immi.homeaffairs.gov.au/form-80 · Last verified: June 2026
+          </div>
+        </div>
+        
+        <div style="display:flex;gap:12px">
+          <button class="btn btn-secondary" style="flex:1">← Previous Field</button>
+          <button class="btn btn-primary" style="flex:1">Next Field →</button>
+        </div>
+        
+        <!-- Scan & Fill integration -->
+        <div class="card" style="margin-top:16px;border:2px dashed var(--primary);background:var(--primary-bg)">
+          <h3 style="font-size:14px;font-weight:700;color:var(--primary);margin-bottom:4px">📤 Auto-Fill Mode</h3>
+          <p style="font-size:13px;color:var(--gray-600);margin-bottom:16px">Upload your documents and Saathi extracts values to fill the form automatically. Powered by the manaslu agent service.</p>
+          
+          <div style="background:white;border-radius:8px;padding:16px;margin-bottom:12px">
+            <h4 style="font-size:13px;font-weight:700;margin-bottom:12px">Extraction Review</h4>
+            <table class="table">
+              <thead><tr><th>Field</th><th>Extracted Value</th><th>Confidence</th><th>Source</th></tr></thead>
+              <tbody>
+                <tr><td style="font-weight:600">Family Name</td><td>KARKI</td><td><span class="badge badge-success">HIGH</span></td><td>Passport</td></tr>
+                <tr><td style="font-weight:600">Given Names</td><td>PRABIN</td><td><span class="badge badge-success">HIGH</span></td><td>Passport</td></tr>
+                <tr><td style="font-weight:600">Date of Birth</td><td>01/01/1990</td><td><span class="badge badge-warning">MEDIUM</span></td><td>Passport</td></tr>
+                <tr><td style="font-weight:600">Passport No.</td><td>PA1234567</td><td><span class="badge badge-success">HIGH</span></td><td>Passport</td></tr>
+                <tr><td style="font-weight:600">Nationality</td><td>NEPAL</td><td><span class="badge badge-success">HIGH</span></td><td>Passport</td></tr>
+                <tr><td style="font-weight:600">Employer</td><td style="color:var(--gray-400)">Could not read</td><td><span class="badge badge-danger">FAILED</span></td><td>Payslip</td></tr>
+              </tbody>
+            </table>
+          </div>
+          
+          <div style="display:flex;gap:16px;margin-bottom:12px;font-size:12px">
+            <span class="badge badge-success">4 ready</span>
+            <span class="badge badge-warning">1 needs review</span>
+            <span class="badge badge-danger">1 needs manual entry</span>
+          </div>
+          
+          <button class="btn btn-primary btn-lg" style="width:100%">📥 Download Filled Form 80 (PDF)</button>
+        </div>
+        
+        <div class="disclaimer">⚠️ This explanation is for information only. Not migration advice. Consult a MARA-registered migration agent (verify at mara.gov.au using their MARN).</div>
+      </div>
+    </div>
+    
+    <!-- F5: NEWS & EVENTS -->
+    <div class="page" id="page-f5">
+      <div class="page-header">
+        <h2>News & Events</h2>
+        <p>Stay informed on visa changes, seminars, and opportunities. (Phase 2)</p>
+      </div>
+      
+      <div class="grid-2">
+        <div class="card">
+          <h3 style="font-size:14px;font-weight:700;margin-bottom:12px">📰 Latest Immigration News</h3>
+          <div style="display:flex;flex-direction:column;gap:12px">
+            <div style="padding:12px;background:var(--gray-50);border-radius:8px">
+              <div style="font-weight:600;font-size:13px">Skills in Demand visa replaces TSS (482)</div>
+              <div style="font-size:11px;color:var(--gray-600);margin-top:2px">New 3-tier system starts December 2024. 7-year pathway to PR for specialists.</div>
+              <div style="font-size:10px;color:var(--gray-400);margin-top:4px">Source: immi.homeaffairs.gov.au · 2 days ago</div>
+            </div>
+            <div style="padding:12px;background:var(--gray-50);border-radius:8px">
+              <div style="font-weight:600;font-size:13px">189 invitation round — June 2026 results</div>
+              <div style="font-size:11px;color:var(--gray-600);margin-top:2px">Minimum points: 85. Occupations invited: engineers, nurses, teachers, ICT.</div>
+              <div style="font-size:10px;color:var(--gray-400);margin-top:4px">Source: SkillSelect · 5 days ago</div>
+            </div>
+            <div style="padding:12px;background:var(--gray-50);border-radius:8px">
+              <div style="font-weight:600;font-size:13px">NSW opens 190 nomination for priority sectors</div>
+              <div style="font-size:11px;color:var(--gray-600);margin-top:2px">Health, education, ICT, infrastructure prioritized. Check eligibility.</div>
+              <div style="font-size:10px;color:var(--gray-400);margin-top:4px">Source: nsw.gov.au · 1 week ago</div>
+            </div>
+          </div>
+        </div>
+        
+        <div class="card">
+          <h3 style="font-size:14px;font-weight:700;margin-bottom:12px">🎓 Upcoming Seminars</h3>
+          <div style="display:flex;flex-direction:column;gap:12px">
+            <div style="padding:12px;border:1px solid var(--primary);border-radius:8px;background:var(--primary-bg)">
+              <div style="font-weight:600;font-size:13px">485 to PR Pathways — Free Webinar</div>
+              <div style="font-size:11px;color:var(--gray-600);margin-top:2px">MARN 0741382 · 25 Aug 2026 · 7PM AEST · Online</div>
+              <span class="badge badge-info" style="margin-top:4px">MARN Verified</span>
+            </div>
+            <div style="padding:12px;border:1px solid var(--gray-200);border-radius:8px">
+              <div style="font-weight:600;font-size:13px">Skills Assessment Workshop — Engineers Australia</div>
+              <div style="font-size:11px;color:var(--gray-600);margin-top:2px">10 Sep 2026 · Sydney · Free</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    
+    <!-- F6: AGENT CONNECT -->
+    <div class="page" id="page-f6">
+      <div class="page-header">
+        <h2>Connect to an Agent</h2>
+        <p>Find a MARA-registered migration agent. (Phase 2)</p>
+      </div>
+      
+      <div class="card">
+        <h3 style="font-size:16px;font-weight:700;margin-bottom:4px">Find a Registered Migration Agent</h3>
+        <p style="font-size:13px;color:var(--gray-600);margin-bottom:16px">All agents listed are MARA-registered. You can verify their registration at mara.gov.au.</p>
+        
+        <div style="display:flex;gap:12px;margin-bottom:16px">
+          <input class="input" placeholder="Search by name, location, or visa type..." style="flex:1">
+          <button class="btn btn-primary">Search</button>
+        </div>
+        
+        <div style="display:flex;flex-direction:column;gap:12px">
+          <div style="padding:14px;border:1px solid var(--gray-200);border-radius:8px">
+            <div style="display:flex;justify-content:space-between;align-items:start">
+              <div>
+                <div style="font-weight:700;font-size:14px">Rajesh Sharma</div>
+                <div style="font-size:12px;color:var(--gray-600)">MARN 0741382 · Sydney CBD</div>
+                <div style="font-size:12px;color:var(--gray-600);margin-top:4px">Specialties: 485, 189, 190, 491, employer-sponsored</div>
+              </div>
+              <span class="badge badge-success">Verified</span>
+            </div>
+            <button class="btn btn-primary btn-sm" style="margin-top:12px">Send Enquiry</button>
+          </div>
+          <div style="padding:14px;border:1px solid var(--gray-200);border-radius:8px">
+            <div style="display:flex;justify-content:space-between;align-items:start">
+              <div>
+                <div style="font-weight:700;font-size:14px">Anita Gurung</div>
+                <div style="font-size:12px;color:var(--gray-600)">MARN 0962451 · Melbourne</div>
+                <div style="font-size:12px;color:var(--gray-600);margin-top:4px">Specialties: Student visas, 485, family migration, AAT appeals</div>
+              </div>
+              <span class="badge badge-success">Verified</span>
+            </div>
+            <button class="btn btn-primary btn-sm" style="margin-top:12px">Send Enquiry</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </main>
+</div>
+
+<script>
+function navigateTo(page) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+  document.getElementById('page-' + page).classList.add('active');
+  document.querySelector('[data-page="' + page + '"]').classList.add('active');
+}
+
+document.querySelectorAll('.nav-item[data-page]').forEach(btn => {
+  btn.addEventListener('click', () => navigateTo(btn.dataset.page));
+});
+
+function showF2Results() {
+  document.getElementById('f2-step').style.display = 'none';
+  document.getElementById('f2-results').style.display = 'block';
+}
+
+function showF3Questions() {
+  document.getElementById('f3-select').style.display = 'none';
+  document.getElementById('f3-questions').style.display = 'block';
+}
+
+function showF3Checklist() {
+  document.getElementById('f3-questions').style.display = 'none';
+  document.getElementById('f3-checklist').style.display = 'block';
+}
+
+function showF4Explainer() {
+  document.getElementById('f4-select').style.display = 'none';
+  document.getElementById('f4-explainer').style.display = 'block';
+}
+</script>
+
+</body>
+</html>
