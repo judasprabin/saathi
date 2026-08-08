@@ -1,0 +1,565 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Saathi — UI Mockup</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Mukta:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --brand-red: #DC2626;
+    --brand-blue: #1E3A8A;
+    --surface: #FFFFFF;
+    --bg: #F9FAFB;
+    --text: #111827;
+    --muted: #6B7280;
+    --border: #E5E7EB;
+    --success: #16A34A;
+    --warning: #D97706;
+    --error: #DC2626;
+    --radius: 12px;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+    background: #E5E7EB;
+    display: flex; justify-content: center; align-items: center;
+    min-height: 100vh; padding: 20px;
+    -webkit-font-smoothing: antialiased;
+  }
+  .phone {
+    width: 390px; height: 844px;
+    background: var(--bg);
+    border-radius: 40px;
+    box-shadow: 0 25px 50px -12px rgba(0,0,0,0.25);
+    overflow: hidden;
+    display: flex; flex-direction: column;
+    position: relative;
+  }
+  .status-bar {
+    height: 44px; background: white;
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 0 24px; font-size: 12px; font-weight: 600;
+  }
+  .header {
+    padding: 12px 20px; background: white;
+    display: flex; align-items: center; justify-content: space-between;
+    border-bottom: 1px solid var(--border);
+  }
+  .header h1 { font-size: 18px; font-weight: 700; }
+  .lang-toggle {
+    font-size: 12px; padding: 4px 10px;
+    border: 1px solid var(--border); border-radius: 8px;
+    background: white; cursor: pointer; font-weight: 500;
+  }
+  .content { flex: 1; overflow-y: auto; padding: 16px; }
+  .content::-webkit-scrollbar { display: none; }
+
+  .tab-bar {
+    display: flex; background: white;
+    border-top: 1px solid var(--border);
+    padding: 8px 0 20px 0;
+  }
+  .tab {
+    flex: 1; display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    font-size: 10px; color: var(--muted); cursor: pointer;
+    transition: color 0.2s; padding: 4px 0;
+    border: none; background: none; font-family: inherit;
+  }
+  .tab.active { color: var(--brand-red); }
+  .tab svg { width: 22px; height: 22px; margin-bottom: 2px; }
+  .tab.active svg { stroke: var(--brand-red); }
+
+  .tab-content { display: none; }
+  .tab-content.active { display: block; }
+
+  .card {
+    background: white; border-radius: var(--radius);
+    padding: 16px; margin-bottom: 12px;
+    border: 1px solid var(--border);
+  }
+  .badge { font-size: 11px; padding: 2px 8px; border-radius: 100px; font-weight: 600; }
+  .badge-green { background: #DCFCE7; color: #166534; }
+  .badge-amber { background: #FEF3C7; color: #92400E; }
+  .badge-red { background: #FEE2E2; color: #991B1B; }
+
+  .btn-primary {
+    background: var(--brand-red); color: white;
+    border: none; border-radius: 10px; padding: 12px 24px;
+    font-weight: 600; font-size: 15px; cursor: pointer;
+    width: 100%; font-family: inherit;
+    transition: background 0.15s;
+  }
+  .btn-primary:hover { background: #B91C1C; }
+  .btn-secondary {
+    background: white; color: var(--text);
+    border: 1px solid var(--border); border-radius: 10px;
+    padding: 12px 24px; font-weight: 600; font-size: 15px;
+    cursor: pointer; width: 100%; font-family: inherit;
+  }
+
+  .countdown-ring {
+    width: 140px; height: 140px; border-radius: 50%;
+    background: conic-gradient(var(--brand-red) 82%, #E5E7EB 0);
+    display: flex; align-items: center; justify-content: center;
+    margin: 0 auto;
+  }
+  .countdown-inner {
+    width: 110px; height: 110px; border-radius: 50%;
+    background: white; display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+  }
+
+  .progress-bar {
+    height: 8px; background: #E5E7EB; border-radius: 100px; overflow: hidden;
+  }
+  .progress-fill {
+    height: 100%; background: var(--brand-red); border-radius: 100px;
+    transition: width 0.3s;
+  }
+
+  .step-indicator {
+    display: flex; gap: 4px; justify-content: center; margin: 12px 0;
+  }
+  .step-dot { width: 8px; height: 8px; border-radius: 50%; background: #D1D5DB; }
+  .step-dot.done { background: var(--brand-red); }
+  .step-dot.current { background: var(--brand-red); width: 24px; border-radius: 100px; }
+
+  .visa-card {
+    padding: 16px; border-radius: var(--radius); border: 1px solid var(--border);
+    cursor: pointer; transition: border-color 0.15s; margin-bottom: 8px;
+    background: white;
+  }
+  .visa-card:hover { border-color: var(--brand-red); }
+  .visa-card.selected { border-color: var(--brand-red); border-width: 2px; background: #FEF2F2; }
+
+  .checklist-item {
+    display: flex; align-items: flex-start; gap: 12px; padding: 12px;
+    border-bottom: 1px solid var(--border); cursor: pointer;
+  }
+  .checklist-item:last-child { border-bottom: none; }
+  .check-dot {
+    width: 24px; height: 24px; border-radius: 50%;
+    border: 2px solid var(--border); flex-shrink: 0;
+    display: flex; align-items: center; justify-content: center;
+    margin-top: 2px;
+  }
+  .check-dot.checked { background: var(--success); border-color: var(--success); color: white; }
+
+  .disclaimer-banner {
+    background: #FEF3C7; border: 1px solid #F59E0B;
+    border-radius: 8px; padding: 10px 12px; font-size: 11px;
+    color: #92400E; margin-top: 12px;
+  }
+
+  .nepali { font-family: 'Mukta', sans-serif; }
+  .fade-in { animation: fadeIn 0.3s ease; }
+  @keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+</style>
+</head>
+<body>
+
+<div class="phone" id="app">
+  <div class="status-bar"><span>9:41</span><span>📶 🔋</span></div>
+
+  <div class="header">
+    <h1 id="pageTitle">⏱️ Visa Tracker</h1>
+    <button class="lang-toggle" onclick="toggleLang()">🇬🇧 EN</button>
+  </div>
+
+  <div class="content" id="content">
+    <!-- F1: Visa Tracker (Monitor surface) -->
+    <div class="tab-content active" id="tab-f1">
+      <div class="card" style="text-align:center">
+        <div class="countdown-ring">
+          <div class="countdown-inner">
+            <div style="font-size:36px;font-weight:800;color:var(--brand-red)">247</div>
+            <div style="font-size:12px;color:var(--muted)">days remaining</div>
+          </div>
+        </div>
+        <div style="margin-top:12px">
+          <span class="badge badge-green">485 — Temporary Graduate</span>
+          <p style="font-size:12px;color:var(--muted);margin-top:4px">Expires: 15 March 2027</p>
+        </div>
+      </div>
+
+      <div class="card">
+        <h3 style="font-size:14px;font-weight:600;margin-bottom:10px">📋 Conditions</h3>
+        <div style="display:flex;flex-direction:column;gap:8px">
+          <div style="display:flex;align-items:center;gap:8px;font-size:13px">
+            <span style="color:var(--success);font-weight:700">✅</span>
+            <span>8107 — Full work rights</span>
+          </div>
+          <div style="display:flex;align-items:center;gap:8px;font-size:13px">
+            <span style="color:var(--success);font-weight:700">✅</span>
+            <span>8501 — Maintain OSHC</span>
+          </div>
+          <div style="display:flex;align-items:center;gap:8px;font-size:13px">
+            <span style="color:var(--warning);font-weight:700">⚠️</span>
+            <span>8503 — No further stay (may apply to some)</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <h3 style="font-size:14px;font-weight:600;margin-bottom:10px">🔔 Upcoming Reminders</h3>
+        <div style="display:flex;flex-direction:column;gap:8px;font-size:13px">
+          <div style="display:flex;justify-content:space-between"><span>180 days before</span><span style="color:var(--muted)">Sep 2026</span></div>
+          <div style="display:flex;justify-content:space-between"><span>90 days before</span><span style="color:var(--muted)">Dec 2026</span></div>
+          <div style="display:flex;justify-content:space-between"><span>30 days before</span><span style="color:var(--brand-red);font-weight:600">Feb 2027</span></div>
+          <div style="display:flex;justify-content:space-between"><span>7 days before</span><span style="color:var(--brand-red);font-weight:600">Mar 2027</span></div>
+        </div>
+      </div>
+
+      <div class="card">
+        <h3 style="font-size:14px;font-weight:600;margin-bottom:6px">→ Next Steps</h3>
+        <p style="font-size:13px;color:var(--muted)">Apply for 189/190 before March 2027. You need 75+ points. Check your score in the Calculator tab.</p>
+      </div>
+
+      <div style="display:flex;gap:8px;margin-top:8px">
+        <button class="btn-secondary" style="flex:1">Edit Visa</button>
+        <button class="btn-primary" style="flex:1">+ Add Visa</button>
+      </div>
+
+      <div class="disclaimer-banner">
+        ⚠️ Dates are user-entered. Verify against your visa grant letter. Not migration advice.
+      </div>
+    </div>
+
+    <!-- F2: Points Calculator (Configure surface) -->
+    <div class="tab-content" id="tab-f2">
+      <div class="card" id="calc-step" style="text-align:center">
+        <div class="step-indicator">
+          <span class="step-dot done"></span><span class="step-dot done"></span>
+          <span class="step-dot done"></span><span class="step-dot current"></span>
+          <span class="step-dot"></span><span class="step-dot"></span>
+          <span class="step-dot"></span><span class="step-dot"></span>
+          <span class="step-dot"></span><span class="step-dot"></span>
+          <span class="step-dot"></span><span class="step-dot"></span>
+        </div>
+        <p style="font-size:12px;color:var(--muted);margin-bottom:16px">Step 4 of 12 — English Language</p>
+
+        <h3 style="font-size:16px;font-weight:700;margin-bottom:4px">English Language</h3>
+        <p class="nepali" style="font-size:13px;color:var(--muted);margin-bottom:16px">अंग्रेजी भाषा</p>
+
+        <div style="text-align:left">
+          <label style="font-size:12px;color:var(--muted);font-weight:500">Test Type</label>
+          <select style="width:100%;padding:10px;border:1px solid var(--border);border-radius:8px;font-size:14px;margin-bottom:12px;font-family:inherit">
+            <option>IELTS</option><option>PTE Academic</option><option>TOEFL iBT</option>
+          </select>
+
+          <label style="font-size:12px;color:var(--muted);font-weight:500">Score</label>
+          <select style="width:100%;padding:10px;border:1px solid var(--border);border-radius:8px;font-size:14px;margin-bottom:8px;font-family:inherit">
+            <option>8.0+ → 20 points</option><option>7.0 → 10 points</option><option>6.0 → 0 points</option>
+          </select>
+        </div>
+
+        <div style="background:#F0FDF4;border-radius:8px;padding:10px;margin-top:12px">
+          <span style="font-size:12px;color:var(--muted)">Points earned:</span>
+          <span style="font-size:20px;font-weight:800;color:var(--success);margin-left:8px">+20</span>
+        </div>
+        <p style="font-size:11px;color:var(--muted);margin-top:6px">Running total: 50 points</p>
+      </div>
+
+      <div style="display:flex;gap:8px;margin-top:8px">
+        <button class="btn-secondary" style="flex:1">← Back</button>
+        <button class="btn-primary" style="flex:1" onclick="showCalcResults()">Next →</button>
+      </div>
+
+      <!-- Results (hidden by default) -->
+      <div id="calc-results" style="display:none" class="fade-in">
+        <div class="card" style="text-align:center">
+          <div style="font-size:48px;font-weight:800;color:var(--brand-red)">75</div>
+          <div style="font-size:14px;color:var(--muted)">points out of 100</div>
+          <div class="progress-bar" style="margin-top:8px"><div class="progress-fill" style="width:75%"></div></div>
+        </div>
+
+        <div class="card">
+          <h3 style="font-size:14px;font-weight:600;margin-bottom:10px">📊 Breakdown</h3>
+          <div style="display:flex;flex-direction:column;gap:6px;font-size:13px">
+            <div style="display:flex;justify-content:space-between"><span>Age (25-32)</span><span style="font-weight:600">30 pts</span></div>
+            <div style="display:flex;justify-content:space-between"><span>English (IELTS 8.0+)</span><span style="font-weight:600">20 pts</span></div>
+            <div style="display:flex;justify-content:space-between"><span>Overseas Work (5 yrs)</span><span style="font-weight:600">10 pts</span></div>
+            <div style="display:flex;justify-content:space-between"><span>AU Work (1 yr)</span><span style="font-weight:600">5 pts</span></div>
+            <div style="display:flex;justify-content:space-between"><span>Education (Bachelors)</span><span style="font-weight:600">15 pts</span></div>
+          </div>
+        </div>
+
+        <div class="card" style="background:#EFF6FF;border-color:#BFDBFE">
+          <h3 style="font-size:13px;font-weight:600;color:var(--brand-blue);margin-bottom:6px">📊 Latest Invitation Rounds</h3>
+          <div style="font-size:12px;display:flex;flex-direction:column;gap:4px">
+            <div style="display:flex;justify-content:space-between"><span>189 (Jun 2026)</span><span style="font-weight:600">85+ points</span></div>
+            <div style="display:flex;justify-content:space-between"><span>190 (Jun 2026)</span><span style="font-weight:600">70+ points</span></div>
+            <div style="display:flex;justify-content:space-between"><span>491 (Jun 2026)</span><span style="font-weight:600">65+ points</span></div>
+          </div>
+        </div>
+
+        <div class="card">
+          <h3 style="font-size:14px;font-weight:600;margin-bottom:6px">💡 How to Improve</h3>
+          <div style="font-size:12px;display:flex;flex-direction:column;gap:6px">
+            <div>• NAATI CCL test: <span style="color:var(--success);font-weight:600">+5 pts</span></div>
+            <div>• Professional Year: <span style="color:var(--success);font-weight:600">+5 pts</span></div>
+            <div>• Retake IELTS for 8.0: <span style="color:var(--success);font-weight:600">+10 pts</span></div>
+          </div>
+        </div>
+
+        <div style="display:flex;gap:8px;margin-top:8px">
+          <button class="btn-secondary" style="flex:1">Save</button>
+          <button class="btn-primary" style="flex:1">Share Results</button>
+        </div>
+      </div>
+
+      <div class="disclaimer-banner">
+        ⚠️ Estimate only. For formal assessment, consult a MARA registered agent (mara.gov.au).
+      </div>
+    </div>
+
+    <!-- F3: Document Checklist (Operate surface) -->
+    <div class="tab-content" id="tab-f3">
+      <div class="card" id="checklist-visa-select">
+        <h3 style="font-size:15px;font-weight:700;margin-bottom:4px">Select your visa type</h3>
+        <p class="nepali" style="font-size:12px;color:var(--muted);margin-bottom:12px">भिसा प्रकार छान्नुहोस्</p>
+        <div class="visa-card selected" onclick="showChecklistQuestions()">
+          <div style="font-weight:600;font-size:14px">🎓 485 — Temporary Graduate</div>
+          <div class="nepali" style="font-size:12px;color:var(--muted)">अस्थायी स्नातक</div>
+        </div>
+        <div class="visa-card">
+          <div style="font-weight:600;font-size:14px">🎓 500 — Student Visa</div>
+          <div class="nepali" style="font-size:12px;color:var(--muted)">विद्यार्थी भिसा</div>
+        </div>
+        <div class="visa-card">
+          <div style="font-weight:600;font-size:14px">🏠 189 — Skilled Independent</div>
+          <div class="nepali" style="font-size:12px;color:var(--muted)">दक्ष स्वतन्त्र</div>
+        </div>
+      </div>
+
+      <div id="checklist-questions" style="display:none" class="fade-in">
+        <div class="card">
+          <h3 style="font-size:14px;font-weight:600;margin-bottom:8px">Which stream?</h3>
+          <p class="nepali" style="font-size:12px;color:var(--muted);margin-bottom:12px">कुन stream?</p>
+          <div class="visa-card selected"><span style="font-weight:600">Post-Study Work</span><br><span class="nepali" style="font-size:11px;color:var(--muted)">पोस्ट-स्टडी वर्क — no skills assessment needed</span></div>
+          <div class="visa-card"><span style="font-weight:600">Graduate Work</span><br><span class="nepali" style="font-size:11px;color:var(--muted)">ग्रेजुएट वर्क — skills assessment required</span></div>
+        </div>
+
+        <div class="card">
+          <h3 style="font-size:14px;font-weight:600;margin-bottom:8px">Applying onshore?</h3>
+          <p class="nepali" style="font-size:12px;color:var(--muted);margin-bottom:12px">अष्ट्रेलिया भित्रबाट आवेदन?</p>
+          <div class="visa-card selected"><span style="font-weight:600">✅ Yes — I am in Australia</span></div>
+          <div class="visa-card"><span style="font-weight:600">No — applying from overseas</span></div>
+        </div>
+
+        <button class="btn-primary" onclick="showGeneratedChecklist()" style="margin-top:8px">Generate Checklist / चेकलिस्ट बनाउनुहोस्</button>
+      </div>
+
+      <div id="checklist-generated" style="display:none" class="fade-in">
+        <div class="card">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+            <h3 style="font-size:15px;font-weight:700">485 PSW Checklist</h3>
+            <span class="badge badge-green">3 of 8 done</span>
+          </div>
+          <div class="progress-bar" style="margin-bottom:12px"><div class="progress-fill" style="width:37%"></div></div>
+          <p style="font-size:11px;color:var(--muted);text-align:center">३ of ८ items gathered</p>
+        </div>
+
+        <div class="card">
+          <h3 style="font-size:13px;font-weight:600;color:var(--muted);margin-bottom:8px">📋 Identity / पहिचान</h3>
+          <div class="checklist-item"><div class="check-dot checked">✓</div><div><div style="font-weight:600;font-size:13px">Certified passport copy</div><div class="nepali" style="font-size:11px;color:var(--muted)">पासपोर्टको प्रमाणित प्रतिलिपि</div></div></div>
+          <div class="checklist-item"><div class="check-dot checked">✓</div><div><div style="font-weight:600;font-size:13px">Birth certificate</div><div class="nepali" style="font-size:11px;color:var(--muted)">जन्म दर्ता प्रमाणपत्र</div></div></div>
+          <div class="checklist-item"><div class="check-dot">○</div><div><div style="font-weight:600;font-size:13px">Recent passport photo</div><div class="nepali" style="font-size:11px;color:var(--muted)">भर्खरको पासपोर्ट फोटो</div></div></div>
+        </div>
+
+        <div class="card">
+          <h3 style="font-size:13px;font-weight:600;color:var(--muted);margin-bottom:8px">📋 Study / अध्ययन</h3>
+          <div class="checklist-item"><div class="check-dot checked">✓</div><div><div style="font-weight:600;font-size:13px">Completion letter</div><div class="nepali" style="font-size:11px;color:var(--muted)">पूरा भएको पत्र</div></div></div>
+          <div class="checklist-item"><div class="check-dot">○</div><div><div style="font-weight:600;font-size:13px">Academic transcript</div><div class="nepali" style="font-size:11px;color:var(--muted)">शैक्षिक प्रतिलिपि</div></div></div>
+          <div class="checklist-item"><div class="check-dot">○</div><div><div style="font-weight:600;font-size:13px">AFP Police Check</div><div class="nepali" style="font-size:11px;color:var(--muted)">AFP प्रहरी जाँच</div></div></div>
+          <div class="checklist-item"><div class="check-dot">○</div><div><div style="font-weight:600;font-size:13px">English test result</div><div class="nepali" style="font-size:11px;color:var(--muted)">अंग्रेजी परीक्षा नतिजा</div></div></div>
+          <div class="checklist-item"><div class="check-dot">○</div><div><div style="font-weight:600;font-size:13px">OSHC certificate</div><div class="nepali" style="font-size:11px;color:var(--muted)">OSHC प्रमाणपत्र</div></div></div>
+        </div>
+
+        <div style="display:flex;gap:8px;margin-top:8px">
+          <button class="btn-secondary" style="flex:1">🖨 Print</button>
+          <button class="btn-primary" style="flex:1">📤 Share PDF</button>
+        </div>
+
+        <p style="font-size:11px;color:var(--muted);text-align:center;margin-top:8px">
+          📎 Source: immi.homeaffairs.gov.au — Verified: June 2026
+        </p>
+      </div>
+    </div>
+
+    <!-- F4: Form Helper (Decide/Learn + Operate surface) -->
+    <div class="tab-content" id="tab-f4">
+      <div class="card" id="form-select-helper">
+        <h3 style="font-size:15px;font-weight:700;margin-bottom:4px">Which form are you filling?</h3>
+        <p class="nepali" style="font-size:12px;color:var(--muted);margin-bottom:12px">कुन फारम भर्दै हुनुहुन्छ?</p>
+        <div class="visa-card selected" onclick="showFormFields()">
+          <div style="font-weight:600;font-size:14px">📄 Form 80 — Personal Particulars</div>
+          <div class="nepali" style="font-size:11px;color:var(--muted)">127 fields · व्यक्तिगत विवरण</div>
+        </div>
+        <div class="visa-card">
+          <div style="font-weight:600;font-size:14px">📄 Form 1221 — Additional Particulars</div>
+          <div class="nepali" style="font-size:11px;color:var(--muted)">85 fields · अतिरिक्त विवरण</div>
+        </div>
+        <div class="visa-card">
+          <div style="font-weight:600;font-size:14px">🌐 485 Online Application</div>
+          <div class="nepali" style="font-size:11px;color:var(--muted)">Key sections explained</div>
+        </div>
+        <div class="visa-card" style="border-style:dashed;border-color:var(--brand-blue);background:#EFF6FF">
+          <div style="font-weight:600;font-size:14px;color:var(--brand-blue)">📤 Upload Documents to Auto-Fill</div>
+          <div class="nepali" style="font-size:11px;color:var(--muted)">कागजात अपलोड गरेर स्वतः भर्नुहोस्</div>
+        </div>
+      </div>
+
+      <div id="form-fields" style="display:none" class="fade-in">
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px">
+          <button onclick="document.getElementById('form-fields').style.display='none';document.getElementById('form-select-helper').style.display='block'" style="background:none;border:none;font-size:18px;cursor:pointer">←</button>
+          <span style="font-size:14px;font-weight:600">Form 80 — Q4 of 127</span>
+        </div>
+
+        <div class="card">
+          <h2 style="font-size:18px;font-weight:700">Date of Birth</h2>
+          <h3 class="nepali" style="font-size:15px;color:var(--muted);margin-bottom:12px">जन्म मिति</h3>
+
+          <div style="background:#F9FAFB;border-radius:8px;padding:12px;margin-bottom:12px">
+            <h4 style="font-size:13px;font-weight:600;margin-bottom:4px">📖 What this means</h4>
+            <p style="font-size:13px;color:var(--text);line-height:1.6">
+              Enter your date of birth in DD/MM/YYYY format as shown on your passport or birth certificate.
+            </p>
+            <p class="nepali" style="font-size:13px;color:var(--text);line-height:1.6">
+              तपाईंको पासपोर्ट वा जन्म दर्ता प्रमाणपत्रमा भएको जन्म मिति DD/MM/YYYY ढाँचामा लेख्नुहोस्।
+            </p>
+          </div>
+
+          <div style="background:#FEF3C7;border-radius:8px;padding:12px;margin-bottom:12px">
+            <h4 style="font-size:13px;font-weight:600;margin-bottom:4px">⚠️ Common Mistakes</h4>
+            <ul style="font-size:12px;padding-left:16px;display:flex;flex-direction:column;gap:4px">
+              <li>Using MM/DD/YYYY format (US format — AU uses DD/MM/YYYY)</li>
+              <li>Date differs from passport (DHA cross-checks this)</li>
+            </ul>
+          </div>
+
+          <div style="display:flex;align-items:center;gap:8px;margin-top:12px">
+            <span class="badge badge-green">👍 Helpful?</span>
+            <span class="badge" style="background:#F3F4F6">👎 Not helpful</span>
+          </div>
+
+          <div style="font-size:11px;color:var(--muted);margin-top:8px">
+            📎 Source: immi.homeaffairs.gov.au/form-80 · Verified: June 2026
+          </div>
+        </div>
+
+        <div style="display:flex;gap:8px;margin-top:8px">
+          <button class="btn-secondary" style="flex:1">← Previous</button>
+          <button class="btn-primary" style="flex:1">Next Field →</button>
+        </div>
+
+        <!-- Scan mode: document upload + review -->
+        <div class="card" style="margin-top:12px;border:2px dashed var(--brand-blue);background:#EFF6FF">
+          <h3 style="font-size:14px;font-weight:700;color:var(--brand-blue);margin-bottom:4px">📤 Auto-Fill Mode</h3>
+          <p class="nepali" style="font-size:12px;color:var(--muted);margin-bottom:12px">कागजात अपलोड गरेर स्वतः भर्नुहोस्</p>
+
+          <div style="background:white;border-radius:8px;padding:16px;margin-bottom:12px">
+            <h4 style="font-size:13px;font-weight:600;margin-bottom:8px">Extraction Review / निकासी समीक्षा</h4>
+            <table style="width:100%;font-size:11px;border-collapse:collapse">
+              <tr style="border-bottom:1px solid var(--border)">
+                <td style="padding:6px;font-weight:600">Family Name</td>
+                <td style="padding:6px">KARKI</td>
+                <td style="padding:6px;text-align:center"><span class="badge badge-green">HIGH</span></td>
+              </tr>
+              <tr style="border-bottom:1px solid var(--border)">
+                <td style="padding:6px;font-weight:600">Given Names</td>
+                <td style="padding:6px">PRABIN</td>
+                <td style="padding:6px;text-align:center"><span class="badge badge-green">HIGH</span></td>
+              </tr>
+              <tr style="border-bottom:1px solid var(--border)">
+                <td style="padding:6px;font-weight:600">Date of Birth</td>
+                <td style="padding:6px">01/01/1990</td>
+                <td style="padding:6px;text-align:center"><span class="badge badge-amber">MED</span></td>
+              </tr>
+              <tr>
+                <td style="padding:6px;font-weight:600">Employer</td>
+                <td style="padding:6px;color:var(--muted)">Could not read</td>
+                <td style="padding:6px;text-align:center"><span class="badge badge-red">FAIL</span></td>
+              </tr>
+            </table>
+          </div>
+
+          <div style="display:flex;gap:8px">
+            <div style="font-size:10px;display:flex;align-items:center;gap:4px"><span class="badge badge-green">5</span> ready</div>
+            <div style="font-size:10px;display:flex;align-items:center;gap:4px"><span class="badge badge-amber">1</span> review</div>
+            <div style="font-size:10px;display:flex;align-items:center;gap:4px"><span class="badge badge-red">1</span> manual</div>
+          </div>
+
+          <button class="btn-primary" style="margin-top:12px">📥 Download Filled PDF</button>
+        </div>
+      </div>
+
+      <div class="disclaimer-banner">
+        ⚠️ This explanation is for information only. Not migration advice. Consult a registered migration agent (verify at mara.gov.au using their MARN).
+      </div>
+    </div>
+  </div>
+
+  <div class="tab-bar">
+    <button class="tab active" id="tab-btn-f1" onclick="switchTab('f1')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+      <span>Tracker</span>
+    </button>
+    <button class="tab" id="tab-btn-f2" onclick="switchTab('f2')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="9" y1="21" x2="9" y2="9"/></svg>
+      <span>Calculator</span>
+    </button>
+    <button class="tab" id="tab-btn-f3" onclick="switchTab('f3')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+      <span>Checklist</span>
+    </button>
+    <button class="tab" id="tab-btn-f4" onclick="switchTab('f4')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+      <span>Form Help</span>
+    </button>
+  </div>
+</div>
+
+<script>
+const titles = { f1: '⏱️ Visa Tracker', f2: '🧮 Points Calculator', f3: '📋 Document Checklist', f4: '📝 Form Helper' };
+
+function switchTab(tab) {
+  document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
+  document.querySelectorAll('.tab').forEach(el => el.classList.remove('active'));
+
+  document.getElementById('tab-' + tab).classList.add('active');
+  document.getElementById('tab-btn-' + tab).classList.add('active');
+  document.getElementById('pageTitle').textContent = titles[tab];
+}
+
+function toggleLang() {
+  const btn = document.querySelector('.lang-toggle');
+  btn.textContent = btn.textContent.includes('EN') ? '🇳🇵 नेपाली' : '🇬🇧 EN';
+}
+
+function showCalcResults() {
+  document.getElementById('calc-step').style.display = 'none';
+  document.getElementById('calc-results').style.display = 'block';
+}
+
+function showChecklistQuestions() {
+  document.getElementById('checklist-visa-select').style.display = 'none';
+  document.getElementById('checklist-questions').style.display = 'block';
+}
+
+function showGeneratedChecklist() {
+  document.getElementById('checklist-questions').style.display = 'none';
+  document.getElementById('checklist-generated').style.display = 'block';
+}
+
+function showFormFields() {
+  document.getElementById('form-select-helper').style.display = 'none';
+  document.getElementById('form-fields').style.display = 'block';
+}
+</script>
+
+</body>
+</html>
