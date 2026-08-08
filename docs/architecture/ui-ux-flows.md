@@ -1,8 +1,16 @@
 # Saathi — UI/UX Flow Design
 
-**Version:** 1.0 | **Date:** August 8, 2026
+**Version:** 1.1 | **Date:** August 8, 2026 (F4 revised for manaslu integration)
 
 Comprehensive screen-by-screen UX design for all 4 features. Bilingual (EN/NP). Mobile-first PWA.
+F1–F3 are Saathi's own deterministic tools; F4 (§7) is a thin consumer of `manaslu`'s
+REST+SSE API (separate repo — see §7.0) rather than a pipeline Saathi implements itself.
+`ux-design-subagent.md` (archived) has been merged in and superseded by this document.
+
+**Visual companion:** [`diagrams/saathi-screen-designs.html`](../../diagrams/saathi-screen-designs.html)
+renders every screen in this spec as an annotated phone-frame mockup (options, states, worked
+examples per page); [`diagrams/saathi-ui-mockup.html`](../../diagrams/saathi-ui-mockup.html) is the
+interactive 4-tab demo.
 
 ---
 
@@ -18,6 +26,8 @@ Comprehensive screen-by-screen UX design for all 4 features. Bilingual (EN/NP). 
 8. [Component Patterns](#8-component-patterns)
 9. [State Handling](#9-state-handling)
 10. [Accessibility](#10-accessibility)
+11. [F5 — News, Seminars & Opportunities UX (Phase 2)](#11-f5--news-seminars--opportunities-ux-phase-2)
+12. [F6 — Connect to an Agent UX (Phase 2, English-only)](#12-f6--connect-to-an-agent-ux-phase-2-english-only)
 
 ---
 
@@ -42,8 +52,24 @@ Info:              #2563EB (blue)
 ```
 
 ### Component Library
-- Based on **shadcn/ui** (Radix primitives + Tailwind)
-- Custom components for Saathi-specific patterns (countdown timer, points breakdown, checklist accordion, extraction review table)
+Based on **shadcn/ui** (Radix primitives + Tailwind). Custom components:
+
+| Component | Description | Used In |
+|-----------|------------|---------|
+| `CountdownRing` | SVG circular progress ring with color shift | F1 dashboard |
+| `WizardStep` | Question + options + running total + tip | F2 wizard |
+| `ChecklistItem` | Status icon + title + expandable detail | F3 checklist |
+| `DocumentUpload` | Drop zone + camera/files picker + preview | F3 upload, F4 upload |
+| `ChatBubble` | Left-aligned AI message with source citation | F4 field explainer |
+| `ConfidenceIndicator` | 🟢🟡🔴 badge, renders manaslu's tier label (not an invented %) | F4 extraction review |
+| `SourceCropViewer` | Zoomed, tappable crop of the source document a value came from | F4 extraction review |
+| `VaultPrefillBadge` | "✨ Pre-filled from your saved profile" + provenance note (doc + when) | F4 extraction review |
+| `TransliterationPicker` | Devanagari source + ranked candidates + free-text box | F4 transliteration sub-screen |
+| `Disclaimer` | Fixed footer bar with MARA disclaimer | F2 every step, F4 every screen |
+| `SourceCitation` | Inline link with "Verified [date]" badge | All features |
+| `TrustBadge` | AU-region / encrypted / audit-logged pill — never "on-device" | F4 upload |
+| `EmptyState` | Icon + headline + description + CTA | All features |
+| `OfflineBanner` | Persistent top banner: "⚠️ Offline — showing cached data" | All features |
 
 ### Bilingual Pattern
 Every UI string uses this pattern:
@@ -649,6 +675,38 @@ Start preparing your next application now.
 
 ## 7. F4 — Form Helper + Scan UX
 
+### 7.0 Architecture Note — F4 Is a Consumer, Not a Pipeline
+
+Saathi does **not** implement classify/extract/validate/transliterate/fill itself.
+That entire pipeline is owned by `manaslu` (separate repo, headless), exposed as a
+REST+SSE API (`manaslu/docs/architecture/06-service-api.md`). Every screen below is
+a rendering of what that API returns — Saathi's job is presentation, not inference.
+
+- `POST /v1/sessions` + document upload → starts a session; Saathi forwards the
+  end-user's auth JWT.
+- SSE events drive screen state:
+
+  | Event | Screen it drives |
+  |-------|-------------------|
+  | `tool.started` / `tool.finished` | Progress states (§7.3, §7.4) — "Checking your profile…", "Reading your passport…" |
+  | `extraction.ready` | Populates the review screen (§7.5) with fields, confidence tiers, source-region refs |
+  | `review.required` | Pauses the session; Saathi renders the specific ask — a field to confirm, a transliteration choice (§7.6), or an unsourced field (§7.7) — and must eventually `POST /confirmations` |
+  | `fill.completed` | Success screen with artifact IDs for the filled PDF + audit annex (§7.8) |
+  | `session.error` | Error state; retry or fall back to manual entry |
+
+- `GET /v1/sessions/{id}` always reflects pending `review.required` items, so if a
+  user closes the app mid-review and comes back, Saathi re-renders the same pause —
+  no lost state, no re-upload.
+- Two distinct sources of bilingual content, don't conflate them:
+  - **§7.2 Field Explainer** (browse mode, no documents involved) is Saathi's own
+    knowledge service — RAG over Home Affairs pages, per `architecture-services-and-features.md`
+    §4.6. Deep explanations + common mistakes, written/curated by Saathi.
+  - **§7.5 Extraction Review** labels + short explanations are **not** Saathi
+    content — they ship inside manaslu's `extraction.ready`/`review.required`
+    payloads, sourced from the field manifest (curated per-form, bilingual,
+    versioned in manaslu). Saathi renders whatever the manifest says; it doesn't
+    author or store this copy.
+
 ### 7.1 Form Selection
 ```
 ┌──────────────────────────────────────┐
@@ -681,12 +739,16 @@ Start preparing your next application now.
 │  │ EOI का भागहरूको व्याख्या       │  │
 │  └────────────────────────────────┘  │
 │                                      │
-│  Or upload your form to auto-fill:   │
+│  Or upload your documents — we'll    │
+│  check what we already know first:   │
 │  [📤 Upload Documents →]             │
 └──────────────────────────────────────┘
 ```
+- Form list = manaslu's `get_form_manifest` catalog. MVP ships Form 80 only
+  (manaslu M2); Form 1221 is the fast-follow — deliberately, since it's the
+  vault-reuse demo (§7.4).
 
-### 7.2 Field Explainer (Chat-Like Interface)
+### 7.2 Field Explainer (Chat-Like Interface) — Browse Mode
 ```
 ┌──────────────────────────────────────┐
 │  ← Form 80         Question 4 of 127 │
@@ -728,17 +790,21 @@ Start preparing your next application now.
 │  [← Prev Field]  [Next Field →]      │
 └──────────────────────────────────────┘
 ```
+This mode never touches manaslu — it's field-by-field reading, no documents
+involved. See §7.0 for why its content is sourced differently from §7.5.
 
-### 7.3 Document Upload (Scan Mode)
+### 7.3 Document Upload — Starts a Manaslu Session
 ```
 ┌──────────────────────────────────────┐
 │         📤  Upload Documents          │
 │                                      │
-│  Upload your documents and Saathi    │
-│  will auto-fill your form fields.    │
+│  Upload your documents. We'll check  │
+│  your saved profile first, and only  │
+│  ask you to scan what's missing.     │
 │                                      │
-│  कागजात अपलोड गर्नुहोस् — Saathi ले  │
-│  फारम स्वतः भरिदिनेछ।               │
+│  कागजात अपलोड गर्नुहोस् — पहिले      │
+│  तपाईंको सेभ गरिएको प्रोफाइल जाँच    │
+│  गर्छौं, अनि बाँकी मात्र सोध्छौं।    │
 │                                      │
 │  Supported documents:                │
 │  ┌────────────────────────────────┐  │
@@ -759,59 +825,173 @@ Start preparing your next application now.
 │  │     Max 10 files, 20MB each    │  │
 │  └────────────────────────────────┘  │
 │                                      │
+│  🔒 Encrypted, stored & processed    │
+│  in Australia. Audit-logged. Never   │
+│  sold. [Privacy details →]           │
+│                                      │
 │  [Upload / अपलोड गर्नुहोस्]          │
 └──────────────────────────────────────┘
 ```
+- Upload triggers `POST /v1/sessions` + document handshake. Progress states
+  ("Classifying document…" → "Reading your passport…") are literal renders of
+  `tool.started`/`tool.finished` events — Saathi has no classifier of its own.
+- **Privacy copy is load-bearing — do not soften into "processed on your
+  device" or "never leaves your device."** manaslu's extraction runs on Claude
+  Vision in an AU-region (`australia-southeast1`) GCP project; documents leave
+  the device by design. The accurate claim is AU-region storage + processing,
+  encrypted at rest, audit-logged, never sold — see manaslu
+  `docs/architecture/10-security-privacy.md`.
 
-### 7.4 Extraction Review (Side-by-Side)
+### 7.4 Vault Pre-Check — Where the Vault Value Prop Becomes Visible
 ```
 ┌──────────────────────────────────────┐
-│  Review Extractions / निकासी समीक्षा │
+│  Checking your saved profile...      │
+│  तपाईंको प्रोफाइल जाँच गर्दै...      │
 │                                      │
-│  Form: Form 80  |  Docs: Passport    │
+│  ┌────────────────────────────────┐  │
+│  │  ✨ 14 of 20 fields already     │  │
+│  │     have data from your        │  │
+│  │     profile                    │  │
+│  │  ✨ २० मध्ये १४ फिल्ड तयार छ    │  │
+│  └────────────────────────────────┘  │
 │                                      │
-│  ┌──────┬──────────┬─────────────┐   │
-│  │Field │Extracted │Source       │   │
-│  ├──────┼──────────┼─────────────┤   │
-│  │Family│KARKI  🟢 │[passport 🔍]│   │
-│  │ Name │          │             │   │
-│  ├──────┼──────────┼─────────────┤   │
-│  │Given │PRABIN 🟢 │[passport 🔍]│   │
-│  │Names │          │             │   │
-│  ├──────┼──────────┼─────────────┤   │
-│  │DOB   │01/01/ 🟡 │[passport 🔍]│   │
-│  │      │1990      │             │   │
-│  ├──────┼──────────┼─────────────┤   │
-│  │Passp.│PA1234567🟢│[passport 🔍]│   │
-│  │No.   │          │             │   │
-│  ├──────┼──────────┼─────────────┤   │
-│  │Nation│NEPAL  🟢 │[passport 🔍]│   │
-│  │ality │          │             │   │
-│  ├──────┼──────────┼─────────────┤   │
-│  │Employ│________🔴│[payslip 🔍] │   │
-│  │er    │Could not │             │   │
-│  │      │read      │             │   │
-│  └──────┴──────────┴─────────────┘   │
+│  We'll only ask you to scan          │
+│  documents for the remaining 6.      │
 │                                      │
-│  🟢 5 high confidence — auto-filled  │
-│  🟡 1 medium confidence — review     │
-│  🔴 1 failed — enter manually        │
+│  [See what's pre-filled →]           │
+└──────────────────────────────────────┘
+```
+- This is the screen-level expression of manaslu's vault-first agent ordering
+  (`recall_facts` before any new extraction — doc 11 §3): "the *second* form a
+  user fills arrives ~80% pre-filled" only *lands as a product feature* if a
+  user can actually see it happening. Without this screen the vault is
+  invisible backend logic.
+- First-ever session for a brand-new user: this screen is skipped (nothing to
+  recall yet) — go straight to §7.3's upload flow.
+- "See what's pre-filled" opens straight into §7.5 with vault-sourced fields
+  already expanded and badged.
+
+### 7.5 Extraction Review — Side-by-Side Value ↔ Source
+```
+┌──────────────────────────────────────┐
+│  Review Your Information             │
+│  तपाईंको जानकारी समीक्षा             │
 │                                      │
-│  [Confirm All 🟢]                    │
+│  Form 80 · Passport + your profile   │
+│                                      │
+│  ── Family Name / थर ──────────────  │
+│  "Your surname as it appears on      │
+│  official documents."                │
+│  ┌────────────┐  ┌────────────────┐  │
+│  │ KARKI      │  │ [passport crop]│  │
+│  │ 🟢 High    │  │ zoomed to name │  │
+│  │            │  │ field           │  │
+│  └────────────┘  └────────────────┘  │
+│                                      │
+│  ── Passport Number / पासपोर्ट नं ── │
+│  "Found in your profile — no need    │
+│  to rescan."                         │
+│  ┌────────────┐  ┌────────────────┐  │
+│  │ PA1234567  │  │ ✨ Pre-filled   │  │
+│  │ ✨ From    │  │ from your saved │  │
+│  │ your vault │  │ profile · from  │  │
+│  │            │  │ Form 80 scan,   │  │
+│  │ [Edit ✏️]  │  │ 3 weeks ago     │  │
+│  └────────────┘  └────────────────┘  │
+│                                      │
+│  ── Date of Birth / जन्म मिति ─────  │
+│  "Must match your passport exactly." │
+│  ┌────────────┐  ┌────────────────┐  │
+│  │ 01/01/1990 │  │ [passport crop]│  │
+│  │ 🟡 Medium  │  │ zoomed to DOB   │  │
+│  │ [Edit ✏️]  │  │ field           │  │
+│  └────────────┘  └────────────────┘  │
+│                                      │
+│  ── Employer / रोजगारदाता ─────────  │
+│  "Your current employer's legal      │
+│  name."                              │
+│  ┌────────────┐  ┌────────────────┐  │
+│  │ — no data  │  │ [payslip crop] │  │
+│  │ 🔴 Not     │  │ text unreadable │  │
+│  │  found     │  │                 │  │
+│  │ [Enter ✏️] │  │                 │  │
+│  └────────────┘  └────────────────┘  │
+│                                      │
+│  🟢 3 high  🟡 1 review  🔴 1 manual │
+│  ✨ 1 from your saved profile        │
+│                                      │
+│  [Approve All Ready Fields]          │
 │  [Review 🟡🔴 Fields First]          │
 │                                      │
 │  ⚠️ You are responsible for          │
 │  verifying all information before    │
 │  submitting to Home Affairs.         │
-│                                      │
-│  [Download Filled PDF / PDF डाउनलोड] │
 └──────────────────────────────────────┘
 ```
+- **Every field row is one of three provenance states**, and the UI must
+  distinguish them, not just show a value:
+  1. **Freshly extracted** — value + confidence tier (badge, not a %, since
+     manaslu owns the thresholds) + the source document crop it came from,
+     shown side-by-side, per the API contract's "consumer renders review UI"
+     obligation (manaslu doc 06).
+  2. **Vault pre-filled** (`recall_facts`, not this session's scan) — the
+     "✨ Pre-filled from your saved profile" badge plus a one-line provenance
+     note (which document, how long ago) instead of a crop, since there's no
+     crop from *this* session. Still editable — recall is a starting point,
+     not a lock.
+  3. **Unsourced / failed** — routed to a `review.required` (`ask_user`) event;
+     manual entry required (§7.7).
+- Bilingual label + one-line explanation per field are the manifest content
+  described in §7.0 — never hardcoded per-form copy in Saathi.
+- Confidence tiers render whatever label manaslu returns (High/Medium/Low) —
+  Saathi does not invent or display numeric thresholds it doesn't own.
 
-### 7.5 Field Edit Modal
+### 7.6 Transliteration Picker — Devanagari Source + Candidates
 ```
 ┌──────────────────────────────────────┐
-│  Edit Field / फिल्ड सम्पादन           │
+│  Confirm Spelling                    │
+│  हिज्जे पुष्टि गर्नुहोस्              │
+│                                      │
+│  Family Name — from Birth Certificate│
+│                                      │
+│  Source (your document):             │
+│  ┌────────────────────────────────┐  │
+│  │        श्रेष्ठ                  │  │
+│  │   [zoomed Devanagari crop]      │  │
+│  └────────────────────────────────┘  │
+│                                      │
+│  Suggested spellings:                │
+│  ○ Shrestha    — commonly used       │
+│  ○ Shreshtha   — generated           │
+│  ○ Śreṣṭha     — ISO 15919, generated│
+│                                      │
+│  Or type it yourself:                │
+│  ┌────────────────────────────────┐  │
+│  │ [                              ]│  │
+│  └────────────────────────────────┘  │
+│                                      │
+│  ℹ️ If this name is on your          │
+│  passport, that spelling always      │
+│  wins — check your passport first.   │
+│                                      │
+│  [Confirm Spelling / पुष्टि गर्नुहोस्]│
+└──────────────────────────────────────┘
+```
+- Appears **only** as a last resort in manaslu's priority order (doc 04):
+  MRZ/passport spelling → other official EN documents → this picker → free
+  text. Most users never see it — passport names dominate.
+- The candidates are deterministic (Aksharamukha-generated), never invented by
+  Claude; Claude's role is limited to *ordering* them by conventional
+  likelihood (doc 04) — the "commonly used"/"generated" labels reflect that,
+  and must not be dropped, since they're the legibility of that constraint.
+  Nothing auto-fills; every path ends in explicit user confirmation.
+- Confirmed spelling is stored as a `user_entry` with provenance
+  `transliteration: generated + user-confirmed` in the audit annex (§7.8).
+
+### 7.7 Manual Entry Modal — Unsourced Field (`review.required`)
+```
+┌──────────────────────────────────────┐
+│  Enter Field / फिल्ड भर्नुहोस्        │
 │                                      │
 │  Employer Name                       │
 │  रोजगारदाताको नाम                     │
@@ -825,19 +1005,49 @@ Start preparing your next application now.
 │  │ [Payslip image — zoomable]     │  │
 │  └────────────────────────────────┘  │
 │                                      │
-│  Could not extract automatically.    │
-│  Please enter from your document.    │
+│  Could not extract automatically —   │
+│  neither a document nor your saved   │
+│  profile had this. Please enter it.  │
 │                                      │
 │  [Save / सेभ]  [Cancel / रद्द]       │
 └──────────────────────────────────────┘
 ```
+- This is the UI rendering of a `review.required` event where neither
+  extraction nor `recall_facts` produced a value. Saving here `POST`s a
+  confirmation (`{request_id, field, value}`) and resumes the paused session.
+
+### 7.8 Fill Completed
+```
+┌──────────────────────────────────────┐
+│  ✅ Form 80 is ready                  │
+│  फारम ८० तयार छ                       │
+│                                      │
+│  All fields confirmed. Every value    │
+│  is traceable to a document or your   │
+│  saved profile.                       │
+│                                      │
+│  [📥 Download Filled PDF]            │
+│  [📄 Download Audit Annex]           │
+│                                      │
+│  The annex lists the source of every  │
+│  field — useful if Home Affairs or    │
+│  your migration agent asks.           │
+│                                      │
+│  ⚠️ You are responsible for verifying │
+│  all information before submitting.   │
+└──────────────────────────────────────┘
+```
+- Rendered on `fill.completed`; both files are signed-URL artifacts from
+  `GET /v1/sessions/{id}/artifacts/{artifact_id}` — Saathi doesn't generate or
+  store the PDF itself.
 
 ### References for F4 UX Patterns
 - **TurboTax** (document upload → review → file — the gold standard for guided form filling)
 - **Google Photos** (document scanning, auto-crop, enhance)
 - **Zocdoc** (insurance card scan → auto-fill registration forms)
 - **Superhuman / Linear** (keyboard shortcuts for power users)
-- **GitHub PR review** (side-by-side diff — maps to extraction review table)
+- **GitHub PR review** (side-by-side diff — maps to extraction review layout)
+- **Google Input Tools / Gboard** (ranked transliteration candidates + free-text fallback — maps to §7.6)
 
 ---
 
@@ -890,6 +1100,21 @@ Every empty state has:
 4. CTA button (primary action)
 5. Secondary link ("Learn more", "See example")
 
+### Pattern 6: Anti-Patterns to Avoid
+Common failure modes in immigration/fintech apps, and Saathi's counter:
+
+| Anti-Pattern | Why it Fails | Saathi's Approach |
+|-------------|-------------|-------------------|
+| Long single-page forms | Users abandon; no sense of progress | Wizard with progress bar, one question at a time |
+| English-only interface | Excludes primary user base (Nepali-dominant) | Bilingual by default, side-by-side option |
+| Hidden disclaimers in footer | Legal risk; user mistrust | Disclaimer always visible, per-screen |
+| Complex navigation | Users get lost | Simple 4-tab bottom bar |
+| No offline support | Useless when users need it most | Offline-first PWA with cached data |
+| Generic card UI with no hierarchy | Everything looks equally important | Monitor surface for dashboard, Configure for wizards |
+| No source citations | Users can't verify information | Every claim links to source with date verified |
+| AI without confidence indicators | Users can't distinguish reliable from uncertain | 🟢🟡🔴 confidence tiers on all AI output |
+| Overclaiming "on-device" / "never leaves your device" privacy | False claim once documents hit a cloud extraction pipeline; erodes trust when discovered | State the real posture — AU-region storage + processing, encrypted, audit-logged, never sold (§7.3, manaslu doc 10) |
+
 ---
 
 ## 9. State Handling
@@ -901,7 +1126,8 @@ Every empty state has:
 | Points Calculator wizard | Step skeleton |
 | Checklist generation | "Generating your checklist..." with progress dots |
 | Form Explainer | "Finding the best explanation..." with typing indicator |
-| Document upload | Progress bar + "Classifying document..." → "Extracting fields..." |
+| Vault check (F4, manaslu `recall_facts`) | "Checking your saved profile..." (§7.4) |
+| Document upload (F4, manaslu session) | Progress bar rendering `tool.started`/`tool.finished`: "Classifying document..." → "Extracting fields..." |
 | PDF generation | "Assembling your PDF..." |
 
 ### Error States
@@ -911,6 +1137,7 @@ Every empty state has:
 | AI timeout | "Taking longer than expected. Retrying..." | "अपेक्षा भन्दा बढी समय लाग्यो। पुनः प्रयास..." |
 | Extraction failed | "Could not read this field. Enter manually." | "यो फिल्ड पढ्न सकिएन। आफैँ भर्नुहोस्।" |
 | Storage full | "Upload limit reached. Free up space." | "अपलोड सीमा पुग्यो। ठाउँ खाली गर्नुहोस्।" |
+| Reconnect mid-review (F4) | "Picking up where you left off..." — `GET /sessions/{id}` restores any pending `review.required` item, so nothing is lost | "जहाँबाट छोड्नुभएको थियो त्यहीँबाट सुरु गर्दै..." |
 
 ### Empty States
 | Context | Empty State |
@@ -937,6 +1164,82 @@ Every empty state has:
 - Screen readers use correct pronunciation per language
 - RTL not needed (both English and Nepali are LTR scripts)
 
+### Touch & Interaction
+| Element | Requirement | Implementation |
+|---------|------------|---------------|
+| Minimum touch target | 44×44px (WCAG 2.5.5) | All tappable elements ≥ 44px |
+| Card tap targets | Full card tappable | Not just the CTA button |
+| Spacing between targets | ≥ 8px | Cards have 12px gap minimum |
+| Swipe gestures | Alternative available | Carousel has dot navigation as alternative to swipe |
+
+### Motion & Animation
+- `prefers-reduced-motion` respected — disables all non-essential animation (countdown ring becomes a static SVG that updates on load)
+- Auto-playing animation under 5 seconds or pausable
+- Page transitions ≤ 300ms — simple fade, no parallax/slide
+
+### Screen Reader Specifics (F4)
+- Chat messages and streamed `message.delta` text use `role="log"` for live-region announcements — critical since F4's content arrives incrementally over SSE, not all at once
+- Confidence indicators (🟢🟡🔴) always paired with a text alternative ("High confidence"), never color-only
+- The extraction review's vault-prefill badge (§7.5) has its own `aria-label` ("Pre-filled from your saved profile, from Form 80, three weeks ago") — not just a visual sparkle icon
+
+### Offline Accessibility
+- All text content cached via service worker
+- Saved visa information and checklist progress available offline
+- Offline indicator announced to screen readers; stale-data timestamp always visible
+- F4 (manaslu-backed) is explicitly **not** offline-capable — session/SSE requires connectivity; the offline banner must say so rather than implying a retry will work locally
+
 ---
 
-*UI/UX flows compiled: August 8, 2026*
+## 11. F5 — News, Seminars & Opportunities UX (Phase 2)
+
+> Traction-gated (PRD §4/§9). Visual designs: [`diagrams/saathi-screen-designs.html`](../../diagrams/saathi-screen-designs.html) §F5, screens F5.1–F5.6. Summary spec here; the board is the source for layout detail.
+
+### Navigation change
+Tab bar grows 4 → 5: **Home · Tracker · Points · Checklist · Forms**. Home is the digest surface carrying news + events; no core tool loses its tab. (Rejected: a dedicated News tab — buries the digest; a top-bar bell — too hidden for a retention feature.)
+
+### Screens
+| # | Screen | Purpose | Key rules |
+|---|--------|---------|-----------|
+| F5.1 | Home / Today digest | Ties all features: visa countdown → resume form-fill session → top personalised news → next event. Strict card order; tracker always first | Personalisation = subclass-tag match, why-line always shown ("तपाईं ५०० मा हुनुभएकाले") |
+| F5.2 | News feed | Allowlisted sources; headline + labelled AI Nepali summary + source/date + link out; category chips (Visa rules · Students · SkillSelect · Fees) | Never full text. SkillSelect items deep-link to F2 compare |
+| F5.3 | News detail | Summary + "does this affect you" (informational phrasing + MARN line) + prominent link-out + follow-topic push toggle | AI-generated label + "source is authoritative" on every item |
+| F5.4 | Events list | Curated seminars/expos/workshops; city + online filters; free/paid + audience chips; NAATI/PY events show F2 points chip | **Migration seminars: MARN-verified presenters only**, number shown, register link. "Saathi is not the organiser" |
+| F5.5 | Event detail | Full listing, verification trail ("listing verified [date]", organiser named, report-a-problem); register = link out; remind-me (FCM) + .ics | No attendee data, no payments in Saathi |
+| F5.6 | Student corner | Deadline-first: scholarships, intake dates, PY/NAATI sessions, open days; every item sourced + last-verified | No course/college recommendations — bilingual disclaimer |
+
+### Component reuse
+Citation footer (Pattern 3), disclaimer banner (Pattern 1), staleness rules (§9), and the F3 content contract (what/where/source/verified) all apply unchanged to F5 listings. New atoms: relevance chip ("affects 485"), MARN-verified chip (links to mara.gov.au register), AI-summary label.
+
+### Anti-patterns (additions to Pattern 6)
+- Republishing article text (aggregation = headline + ≤2-sentence summary + attribution + link out)
+- Listing a migration-topic seminar without a verifiable MARN
+- Framing personalisation as advice ("you should attend/apply") — it's relevance filtering, labelled as such
+
+---
+
+## 12. F6 — Connect to an Agent UX (Phase 2, English-only)
+
+> Traction-gated; the PRD §7 monetisation surface, so trust rules are strictest here. Visual designs: [`diagrams/saathi-screen-designs.html`](../../diagrams/saathi-screen-designs.html) §F6, screens F6.1–F6.6. **English-only UI** by product decision — agent correspondence happens in English; the bilingual MARN-handoff lines across the app are the entry points and stay bilingual.
+
+### Entry points (no new tab)
+Every MARN handoff line becomes tappable → F6 with topic context carried: F1 expiry-warning action list, F2 results disclaimer, F4a circumstance-dependent fields, F5 news "does this affect you" cards, plus a Home digest card. No 6th tab.
+
+### Screens
+| # | Screen | Purpose | Key rules |
+|---|--------|---------|-----------|
+| F6.1 | Agent directory | MARA-registered agents only; filters: topic, "Speaks Nepali", city/online; fees + response time upfront | Sort = specialisation match, **never pay-to-rank** (stated on screen); lapsed MARN = auto-delisted |
+| F6.2 | Agent profile | Verification block first (MARN + mara.gov.au verify link + Saathi's last-verified date), practicalities, then CTAs | Referral-fee disclosure before any CTA; no public star-ratings at launch (defamation/gaming risk) |
+| F6.3 | Enquiry / request-a-call | Topic (pre-filled from entry context) + optional ≤500-char message + contact preference + call windows | An introduction, not a case file — copy nudges detail to the consult |
+| F6.4 | **Share-details consent review** | Item-by-item opt-in: contact + enquiry pre-ticked; visa/points/checklist summaries **off by default**; consent per-agent per-enquiry, versioned, revocable | **Documents/filled forms never flow through F6** (no manaslu API path — structural). Referral disclosure repeats at send |
+| F6.5 | Confirmation | Response-time expectation + status timeline (Delivered → Viewed → Responded) + the boundary card: from here it's client ↔ agent directly, Saathi can't see the advice | 4 business days silent → nudge agent + offer two alternatives |
+| F6.6 | My Enquiries & data controls | All enquiries with status; accept proposed call time (.ics + FCM, reuses F5 plumbing); per-agent **Revoke** of shared data | Revoke → agent notified with deletion obligation, enquiry closes, full history in audit log; private post-consult feedback feeds delisting, not ratings |
+
+### Anti-patterns (additions to Pattern 6)
+- Pay-to-rank or undisclosed placement in the directory
+- Sharing any data item the user didn't individually tick
+- Public reviews/ratings of regulated professionals without a moderation plan
+- Any UI implying Saathi participates in or endorses the advice given
+
+---
+
+*UI/UX flows compiled: August 8, 2026 · F4 revised for manaslu API integration · F5 + F6 (Phase 2) added August 8, 2026*

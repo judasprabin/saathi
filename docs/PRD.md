@@ -2,18 +2,18 @@
 
 ## Visa Utility Tool for Nepalese Migrants in Australia
 
-**Version:** 2.0 — Scope Reset (Core Utility Focus)
-**Date:** June 28, 2026
+**Version:** 2.1 — Repositioned post-competitive analysis; unified with manaslu
+**Date:** August 8, 2026 (v2.0 was June 28, 2026)
 **Status:** Validated scope — ready to build
 **Author:** Prabin Karki
 
-> **Scope reset from v1.0:** Previous versions grew to 38 features across 3 phases. This version resets to the 4 core utility features that actually solve the problem: visa tracking, points calculator, document checklist, and form helper. Everything else is deferred until traction is proven.
+> **Scope reset from v1.0:** Previous versions grew to 38 features across 3 phases. v2.0 reset to the 4 core utility features that actually solve the problem: visa tracking, points calculator, document checklist, and form helper. **v2.1** incorporates the July 13, 2026 competitive re-assessment (`research/dispora-nepal/competitive-analysis.md`): mechanical form-filling is already commoditized by real competitors (Instafill has a dedicated Form 80 page; FormMate80 does it free), so Saathi survives only as the wedge product — Nepali-language, persistent profile vault, bilingual explain, compliance trust — not a generic filler. The vault moves from implicit to explicit core scope. F4's scan/fill engine is built in a separate repo, `manaslu`, and consumed via API — not rebuilt here.
 
 ---
 
 ## 1. What Saathi Is
 
-A focused visa utility tool for Nepalese migrants in Australia. It does four things well:
+**"Understand and complete your visa forms in your own language, from your own documents."** Not "AI fills your form" — that's already commoditized (see §2). A focused visa utility tool for Nepalese migrants in Australia that does four things well:
 
 1. **Track** your visa status and upcoming deadlines
 2. **Calculate** your skilled migration points score
@@ -127,14 +127,13 @@ Generate a personalised document checklist for any supported visa type.
 
 ### F4 — Form Helper
 
-Help users understand what Australian immigration forms are asking and what to enter — field by field.
+Help users understand what Australian immigration forms are asking, and — the actual moat — fill forms from a persistent profile built from their own documents, reused across their multi-year visa journey.
 
 **What it does:**
-- User selects a form (e.g. Form 80, Form 1085, 485 online form sections) or describes what they're filling in
-- Saathi explains each field in plain Nepali: what is being asked, why it matters, what a correct answer looks like, and common mistakes
-- For ambiguous fields, Saathi explains the options without choosing for the user
+- **F4a — Explain (built here):** user selects a form (e.g. Form 80, Form 1085, 485 online form sections) or describes what they're filling in. Saathi explains each field in plain Nepali: what is being asked, why it matters, what a correct answer looks like, and common mistakes. For ambiguous fields, Saathi explains the options without choosing for the user.
+- **F4b — Scan & Fill (built by `manaslu`, a separate headless agent service, consumed here via API):** user uploads documents; the agent classifies, extracts, and validates them, transliterates Devanagari names to Latin with the user's confirmation, and fills the AcroForm PDF from **confirmed, provenance-tracked values only**. Values are also saved to a persistent **profile vault** — the second form a user fills (e.g. Form 1221 after Form 80) arrives already ~pre-filled from data captured the first time, with every value still traceable to its source document. This vault is the product's actual differentiator; see `research/dispora-nepal/competitive-analysis.md`.
 
-**What it does NOT do:** Fill in or submit the form. Does not access ImmiAccount. Does not make eligibility assessments. For any field where the answer depends on the user's specific legal situation, Saathi says "This depends on your specific circumstances — ask a registered migration agent."
+**What it does NOT do:** Submit the form. Does not access ImmiAccount. Does not make eligibility assessments. For any field where the answer depends on the user's specific legal situation, Saathi says "This depends on your specific circumstances — ask a registered migration agent."
 
 **Forms to support at MVP:**
 - Form 80 (Personal Particulars for character assessment) — used across many visa types
@@ -143,6 +142,50 @@ Help users understand what Australian immigration forms are asking and what to e
 - 189/190/491 EOI (Expression of Interest) key sections in SkillSelect
 
 **Acceptance:** Field explanations are accurate; no field explanation constitutes migration advice; disclaimer present on every response; tested with real forms.
+
+---
+
+### F5 — News, Seminars & Opportunities (Phase 2 — after F1–F4 traction)
+
+A curated Home feed: immigration/visa news with Nepali AI summaries, plus community seminars, education expos, scholarships, and info sessions — aggregated from other sites, never republished.
+
+**What it does:**
+- **News:** allowlisted sources (Home Affairs, SkillSelect, state programs, SBS Nepali, vetted sector press) ingested on a schedule; each item = headline + labelled AI-generated Nepali summary (≤2 sentences) + source + date + link out to the original. Personalised by visa subclass ("you're on 500 → 485 news pinned"), with the why shown.
+- **Seminars & events:** human-curated listings (city + online filters) with date, venue, free/paid, audience tags. Registration always happens on the organiser's site — Saathi holds no attendee data or payments. Optional reminders (FCM) and calendar export.
+- **Student corner:** scholarship deadlines, intake dates, PY/NAATI info sessions, university open days — deadline-first, every listing sourced and last-verified.
+
+**Trust rules (non-negotiable):**
+- Migration-topic seminars list **only MARN-verified presenters** (number shown, linked to the mara.gov.au register). Unregistered "agents" running seminars are the community's biggest scam vector; refusing them is part of the moat.
+- Copyright: aggregation only — headline + short summary + attribution + link out. No full-text republishing.
+- AI summaries are always labelled, with "the linked source is authoritative."
+- No course/college recommendations — listings only, disclaimer in both languages.
+
+**Why Phase 2, not MVP:** this is the retention/daily-touch layer and the natural future surface for the MARN-referral monetisation (§7) — but it's content ops, not product validation. It ships only after the four core tools prove traction (§9's discipline). The news half reuses the ingestion worker already planned for tracker rule-change detection, so the marginal engineering is small; the real cost is curation time.
+
+**Acceptance (when built):** feed loads with ≥5 fresh items/week; every item links out and carries source + date; every migration seminar shows a verifiable MARN; zero full-text reproductions.
+
+---
+
+### F6 — Connect to an Agent (Phase 2 — the monetisation surface, traction-gated)
+
+Operationalises the MARN handoff: every "consult a registered agent" line in the app becomes a tappable entry into a directory of **MARA-registered agents only**, with enquiry and request-a-call flows. **English-only UI** by product decision (agent correspondence happens in English); the bilingual handoff lines elsewhere remain the entry points.
+
+**What it does:**
+- **Directory:** MARN-verified agents with specialisations, languages ("Speaks Nepali" is a first-class filter), location/online, upfront consult fees, response times. Sorted by specialisation match — **never pay-to-rank**.
+- **Enquiry / request a call:** topic + optional short message + contact preference and call-time windows.
+- **Consent review before send:** item-by-item opt-in of exactly what the agent sees (contact + enquiry pre-ticked; visa/points/checklist summaries **off by default**). Consent is per-agent, per-enquiry, revocable, audit-logged.
+- **My Enquiries:** status tracking (Sent → Viewed → Responded), accept a proposed call time, revoke shared data (agent is notified with a deletion obligation).
+
+**Trust rules (non-negotiable):**
+- Agents listed only with a MARN checked against the MARA register at onboarding and re-verified quarterly; lapsed registration = auto-delisted.
+- Referral-fee disclosure on the agent profile **and** at the point of send: "Saathi may receive a fee if you engage this agent — your price is unaffected."
+- **Documents and filled forms never flow through F6** — manaslu's vault has no API path to it, structurally. Users bring documents to the consult themselves.
+- Saathi brokers the introduction only: the advice relationship is directly client ↔ agent; Saathi cannot see the conversation.
+- No public star-ratings at launch (defamation/gaming risk on regulated professionals); private "responded professionally?" feedback feeds delisting decisions instead.
+
+**Why Phase 2:** this is PRD §7's referral-fee monetisation — it only works once user volume exists, and it shares F5's trust prerequisites (MARA verification ops). Sharing user PII with third parties also requires the privacy policy and consent framework from Phase 5's legal review to be in place first.
+
+**Acceptance (when built):** every listed agent's MARN independently verifiable; zero data shared without the itemised consent record; revocation round-trip works; referral disclosure present on profile + send screens.
 
 ---
 
@@ -162,12 +205,13 @@ Get written legal advice confirming the information-only boundary before launch.
 
 | Layer | Choice | Reason |
 |-------|--------|--------|
-| Frontend | Next.js PWA | Mobile-first; no app store barrier |
-| Backend | FastAPI | Lightweight; async |
-| LLM | Claude (claude-sonnet-4-6) | Nepali generation + document explanation |
-| Retrieval | RAG over official source corpus | Grounding; citations; "last verified" dates |
-| Database | Supabase (Postgres) | Simple; handles auth + user data |
-| Hosting | Vercel + Railway | Fast to ship; cheap to validate |
+| Frontend | Next.js PWA on Cloud Run | Mobile-first; no app store barrier; one deploy pattern with the API |
+| Backend (F1-F3, F4a) | FastAPI on Cloud Run | Lightweight; async; same pattern manaslu uses |
+| F4b (scan/extract/fill) | **manaslu** — separate headless agent repo, consumed via REST+SSE API | Already built, GCP-native, purpose-designed around the vault moat — not rebuilt here |
+| LLM | Claude Sonnet 5 | Nepali generation + document explanation |
+| Retrieval | RAG (pgvector + Voyage AI embeddings) over official source corpus | Grounding; citations; "last verified" dates; Voyage chosen over OpenAI for Nepali retrieval quality |
+| Database | Cloud SQL for PostgreSQL | Same engine as manaslu; one auth system (GCP Identity Platform) across both services |
+| Hosting | GCP (Cloud Run + Cloud SQL), Terraform in `karki-labs-infra` | One cloud, reuses infra already provisioned for manaslu |
 
 **Knowledge freshness:** Official source pages (Home Affairs, ATO, SkillSelect) are ingested on a schedule with change detection. Every checklist item and calculator component carries a "last verified" date. Stale data is more dangerous than no data.
 
@@ -204,8 +248,8 @@ The following will NOT be built until the four core features have traction:
 
 - Mental health / crisis support
 - Workplace rights / Fair Work
-- Agent marketplace (Connect)
-- Community platform / experiences section
+- Agent marketplace (Connect) — *exception: F6 (§4), the enquiry/referral flow, is now specced as a Phase 2 follow-on; still gated on core-feature traction + the Phase 5 legal/privacy review. The full marketplace (payments, bookings, case management) remains out of scope*
+- Community platform / experiences section — *exception: F5 (§4), the curated news/events feed, is now specced as the planned Phase 2 follow-on; it is still gated on core-feature traction*
 - Skills assessment deep-dive
 - Dual-country financial tools
 - Voice input
@@ -229,4 +273,7 @@ The following will NOT be built until the four core features have traction:
 |---------|------|---------|
 | 0.1–0.3 | June 10, 2026 | Pre-validation draft; market scoping |
 | 1.0 | June 28, 2026 | Research-complete; 38 features; scope too broad |
-| **2.0** | **June 28, 2026** | **Scope reset: 4 core features only (tracker, calculator, checklist, form helper); everything else deferred until traction** |
+| 2.0 | June 28, 2026 | Scope reset: 4 core features only (tracker, calculator, checklist, form helper); everything else deferred until traction |
+| 2.1 | August 8, 2026 | Repositioned per July 13 competitive re-assessment (wedge/vault framing, corrected competitor set); F4b (scan/fill) unified with the `manaslu` repo instead of being rebuilt in saathi; stack consolidated to GCP-native to match manaslu |
+| 2.2 | August 8, 2026 | Added F5 — News, Seminars & Opportunities (curated aggregation feed + Home digest) as an explicitly Phase 2, traction-gated feature with MARN-verification and no-republishing trust rules |
+| **2.3** | **August 8, 2026** | **Added F6 — Connect to an Agent (MARA-verified directory + enquiry/request-a-call + itemised share consent, English-only UI) as the Phase 2 monetisation surface; full marketplace still out of scope** |

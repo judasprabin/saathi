@@ -1,10 +1,12 @@
 # Saathi — Technical Architecture Research
 
+> **ARCHIVED (Aug 8, 2026):** superseded by `../../../ARCHITECTURE.md` v2.0. The Supabase/Vercel/Railway stack recommended here was replaced by GCP-native (Cloud Run/Cloud SQL/Identity Platform) when saathi unified with manaslu; OneSignal was replaced by FCM (ADR-005). One recommendation from this doc **was** adopted: Voyage AI embeddings over OpenAI (ADR-007).
+
 **Project:** Saathi — AI Settlement & Immigration Companion for Nepalese Diaspora in Australia  
 **Document:** Architecture Research & Technology Recommendations  
 **Date:** August 8, 2026  
 **Author:** Architecture Research (based on PRD v2.0, F4 Scan Architecture, Macrofi patterns)  
-**Status:** Research complete — ready for implementation decisions
+**Status:** ~~Research complete — ready for implementation decisions~~ Archived
 
 ---
 

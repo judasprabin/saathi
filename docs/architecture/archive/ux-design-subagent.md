@@ -1,3 +1,5 @@
+> **ARCHIVED (Aug 8, 2026):** Superseded by [`docs/architecture/ui-ux-flows.md`](../ui-ux-flows.md), which merged this doc's reference-app/anti-pattern table, component library, and accessibility content, and corrected the F4 flow to match manaslu's actual API contract (this version still assumed Saathi's own on-device scan/extract/fill pipeline). Kept for history only — do not build against this file.
+
 # Saathi — UI/UX Flow Design Document
 
 **Project:** AI Settlement & Immigration Companion for the Nepalese diaspora in Australia  

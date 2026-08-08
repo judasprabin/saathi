@@ -1,3 +1,5 @@
+> **Archived.** Superseded by [`docs/research/market-and-competitive-analysis.md`](../market-and-competitive-analysis.md), which consolidates this document with `market-research.md` and `research/dispora-nepal/competitive-analysis.md` under the corrected wedge/vault positioning. TAM/SAM/SOM figures and corridor data below were carried forward into the new document; kept here for full detail and historical reference.
+
 # DEEP MARKET ANALYSIS — Saathi: Nepal-Australia Immigration Corridor
 
 **Date:** August 8, 2026  

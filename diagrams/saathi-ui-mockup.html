@@ -408,8 +408,8 @@
           <div class="nepali" style="font-size:11px;color:var(--muted)">Key sections explained</div>
         </div>
         <div class="visa-card" style="border-style:dashed;border-color:var(--brand-blue);background:#EFF6FF">
-          <div style="font-weight:600;font-size:14px;color:var(--brand-blue)">📤 Upload Documents to Auto-Fill</div>
-          <div class="nepali" style="font-size:11px;color:var(--muted)">कागजात अपलोड गरेर स्वतः भर्नुहोस्</div>
+          <div style="font-weight:600;font-size:14px;color:var(--brand-blue)">📤 Upload Documents — We Check Your Profile First</div>
+          <div class="nepali" style="font-size:11px;color:var(--muted)">पहिले प्रोफाइल जाँच्छौं, अनि कागजात अपलोड गर्नुहोस्</div>
         </div>
       </div>
 
@@ -456,39 +456,57 @@
           <button class="btn-primary" style="flex:1">Next Field →</button>
         </div>
 
-        <!-- Scan mode: document upload + review -->
+        <!-- Scan mode: document upload + review (renders manaslu's session API — Saathi has no classify/extract/fill of its own) -->
         <div class="card" style="margin-top:12px;border:2px dashed var(--brand-blue);background:#EFF6FF">
-          <h3 style="font-size:14px;font-weight:700;color:var(--brand-blue);margin-bottom:4px">📤 Auto-Fill Mode</h3>
-          <p class="nepali" style="font-size:12px;color:var(--muted);margin-bottom:12px">कागजात अपलोड गरेर स्वतः भर्नुहोस्</p>
+          <h3 style="font-size:14px;font-weight:700;color:var(--brand-blue);margin-bottom:4px">📤 Upload &amp; Review</h3>
+          <p class="nepali" style="font-size:12px;color:var(--muted);margin-bottom:8px">कागजात अपलोड गरेर समीक्षा गर्नुहोस्</p>
+          <p style="font-size:11px;color:var(--muted);margin-bottom:12px">🔒 Encrypted, stored &amp; processed in Australia. Audit-logged. Never sold.</p>
 
           <div style="background:white;border-radius:8px;padding:16px;margin-bottom:12px">
             <h4 style="font-size:13px;font-weight:600;margin-bottom:8px">Extraction Review / निकासी समीक्षा</h4>
             <table style="width:100%;font-size:11px;border-collapse:collapse">
+              <tr style="border-bottom:1px solid var(--border);color:var(--muted);font-size:10px">
+                <td style="padding:6px">Field</td>
+                <td style="padding:6px">Value</td>
+                <td style="padding:6px;text-align:center">Source</td>
+                <td style="padding:6px;text-align:center">Confidence</td>
+              </tr>
               <tr style="border-bottom:1px solid var(--border)">
                 <td style="padding:6px;font-weight:600">Family Name</td>
                 <td style="padding:6px">KARKI</td>
+                <td style="padding:6px;text-align:center">📄 Passport</td>
                 <td style="padding:6px;text-align:center"><span class="badge badge-green">HIGH</span></td>
               </tr>
               <tr style="border-bottom:1px solid var(--border)">
                 <td style="padding:6px;font-weight:600">Given Names</td>
                 <td style="padding:6px">PRABIN</td>
+                <td style="padding:6px;text-align:center">📄 Passport</td>
                 <td style="padding:6px;text-align:center"><span class="badge badge-green">HIGH</span></td>
+              </tr>
+              <tr style="border-bottom:1px solid var(--border);background:#FAF5FF">
+                <td style="padding:6px;font-weight:600">Passport No.</td>
+                <td style="padding:6px">PA1234567</td>
+                <td style="padding:6px;text-align:center">✨ Your profile</td>
+                <td style="padding:6px;text-align:center"><span class="badge" style="background:#F3E8FF;color:#6B21A8">VAULT</span></td>
               </tr>
               <tr style="border-bottom:1px solid var(--border)">
                 <td style="padding:6px;font-weight:600">Date of Birth</td>
                 <td style="padding:6px">01/01/1990</td>
+                <td style="padding:6px;text-align:center">📄 Passport</td>
                 <td style="padding:6px;text-align:center"><span class="badge badge-amber">MED</span></td>
               </tr>
               <tr>
                 <td style="padding:6px;font-weight:600">Employer</td>
                 <td style="padding:6px;color:var(--muted)">Could not read</td>
+                <td style="padding:6px;text-align:center">💰 Payslip</td>
                 <td style="padding:6px;text-align:center"><span class="badge badge-red">FAIL</span></td>
               </tr>
             </table>
           </div>
 
-          <div style="display:flex;gap:8px">
-            <div style="font-size:10px;display:flex;align-items:center;gap:4px"><span class="badge badge-green">5</span> ready</div>
+          <div style="display:flex;gap:8px;flex-wrap:wrap">
+            <div style="font-size:10px;display:flex;align-items:center;gap:4px"><span class="badge badge-green">3</span> ready</div>
+            <div style="font-size:10px;display:flex;align-items:center;gap:4px"><span class="badge" style="background:#F3E8FF;color:#6B21A8">1</span> from vault</div>
             <div style="font-size:10px;display:flex;align-items:center;gap:4px"><span class="badge badge-amber">1</span> review</div>
             <div style="font-size:10px;display:flex;align-items:center;gap:4px"><span class="badge badge-red">1</span> manual</div>
           </div>

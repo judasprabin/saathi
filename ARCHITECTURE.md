@@ -1,12 +1,12 @@
 # Saathi — Master Architecture Document
 
 **Project:** AI Settlement & Immigration Companion for Nepalese Diaspora in Australia
-**Version:** 1.0
+**Version:** 2.0 — Unified with manaslu (GCP-native, F4 delegated to a separate agent service)
 **Date:** August 8, 2026
 **Author:** Prabin Karki
 **Status:** Architecture approved — ready for implementation
 
-> This is the single source of truth for Saathi's architecture. All 4 features, the scan/form-fill pipeline, and infrastructure decisions are documented here. Component-specific detail files live in `docs/architecture/`.
+> This is the single source of truth for Saathi's architecture. Saathi is one product built across **two repos**: this repo (frontend + F1/F2/F3 + F4 integration) and [`manaslu`](../../manaslu) (the headless scan/extract/form-fill agent service that F4 consumes). See §1 for the boundary. Component-specific detail files live in `docs/architecture/`.
 
 ---
 
@@ -21,7 +21,7 @@
 7. [Feature Architecture — F1 Visa Tracker](#7-f1-visa-tracker)
 8. [Feature Architecture — F2 Points Calculator](#8-f2-points-calculator)
 9. [Feature Architecture — F3 Document Checklist](#9-f3-document-checklist)
-10. [Feature Architecture — F4 Form Helper + Scan Pipeline](#10-f4-form-helper--scan-pipeline)
+10. [Feature Architecture — F4 Form Helper](#10-f4-form-helper)
 11. [RAG & Knowledge Architecture](#11-rag--knowledge-architecture)
 12. [Infrastructure & Deployment](#12-infrastructure--deployment)
 13. [Security Architecture](#13-security-architecture)
@@ -35,14 +35,37 @@
 
 ### What Saathi Is
 
-A focused, bilingual (English/Nepali) PWA that helps Nepalese migrants in Australia navigate the immigration system with four utility tools:
+A focused, bilingual (English/Nepali) PWA that helps Nepalese migrants in Australia navigate the immigration system. Positioning, corrected against the July 2026 competitive landscape (`docs/research/market-and-competitive-analysis.md`): mechanical form-filling is already commoditized (Instafill has a dedicated Form 80 page; FormMate80 does it free). Saathi's headline is **"understand and complete your visa forms in your own language, from your own documents"** — the moat is a persistent profile vault (fill once, every later form starts ~pre-filled), bilingual field-by-field explanation, AU-migration depth, and a fill-only trust posture, not raw fill speed.
 
-| # | Feature | What It Does | Complexity |
-|---|---------|-------------|------------|
-| F1 | **Visa Tracker** | Track visa expiry, conditions, and deadlines | Low |
-| F2 | **Points Calculator** | Calculate skilled migration points score | Medium |
-| F3 | **Document Checklist** | Generate personalised visa document checklists | Medium |
-| F4 | **Form Helper** | Explain immigration form fields in Nepali; scan documents → auto-fill forms | High |
+| # | Feature | What It Does | Complexity | Owning repo |
+|---|---------|-------------|------------|-------------|
+| F1 | **Visa Tracker** | Track visa expiry, conditions, and deadlines | Low | saathi |
+| F2 | **Points Calculator** | Calculate skilled migration points score | Medium | saathi |
+| F3 | **Document Checklist** | Generate personalised visa document checklists | Medium | saathi |
+| F4a | **Form Explainer** | Explain immigration form fields in Nepali (RAG) | Medium | saathi |
+| F4b | **Scan & Form-Fill** | Scan documents → vault → auto-fill AcroForm PDF | High | **manaslu** (consumed via API) |
+| F5 | **News, Seminars & Opportunities** *(Phase 2, traction-gated)* | Home digest + curated visa news (AI Nepali summaries, link-out only) + MARN-verified seminars + student opportunities | Low-Med | saathi |
+| F6 | **Connect to an Agent** *(Phase 2, traction-gated, EN-only UI)* | MARA-verified agent directory + enquiry/request-a-call + itemised share-consent + revocation. The PRD §7 referral surface | Medium | saathi |
+
+### The saathi / manaslu boundary
+
+**manaslu is a separate, headless agent service** — no UI, no end-user identity, scoped to exactly one skill: scan a user's documents, maintain a persistent provenance-tracked profile vault, and fill Form 80 / Form 1221 AcroForm fields from it. It exposes a REST + SSE API. Saathi is its only consumer at MVP.
+
+```
+saathi (this repo)                          manaslu (separate repo)
+─────────────────────                       ──────────────────────────
+Next.js PWA (all 4 features' UI)            Headless FastAPI agent service
+F1 Tracker, F2 Calculator,     ◄── owns ──  F4b: classify/extract/validate/
+F3 Checklist — full stack                   transliterate/map/fill + vault
+F4a Form Explainer (RAG,                    (profile_facts table, Claude
+ own knowledge-service)                      tool-use loop, audit log)
+F4b UI: renders manaslu's                   Consumers forward the
+ session/review/confirm events    ──API──►  end-user JWT; manaslu verifies
+ (side-by-side value↔source-crop,           it, never issues its own
+ transliteration picker)                    identity — see manaslu doc 07
+```
+
+**Why this split, not one rebuild:** manaslu already exists, is GCP-native, and was designed post-competitive-analysis specifically around the vault moat (see `manaslu/docs/architecture/11-mvp-build-plan.md`). Rebuilding scan/extract/fill inside saathi would duplicate ~4-6 weeks of already-solved, harder engineering (Devanagari transliteration, AcroForm provenance contracts, confidence tiering) for no benefit. Saathi's job for F4b is thin: call the API, render what it returns, forward auth.
 
 ### What Saathi Is NOT
 
@@ -50,12 +73,14 @@ A focused, bilingual (English/Nepali) PWA that helps Nepalese migrants in Austra
 - An ImmiAccount integration — does not connect to Home Affairs systems
 - A marketplace (initially) — no agent matching until traction is proven
 - A community platform — focused purely on utility tools
+- A generic/horizontal form filler — see competitive positioning above; this is explicitly not the wedge
 
 ### Regulatory Boundary (Non-Negotiable)
 
 ```
 ✅ ALLOWED: explaining form fields, showing required documents, calculating points,
-            tracking user-entered dates, translating official content into Nepali
+            tracking user-entered dates, translating official content into Nepali,
+            transcribing values from the user's own documents into forms (manaslu, fill-only)
 
 ❌ PROHIBITED: assessing eligibility, recommending visa pathways, lodging applications,
               preparing forms on a person's behalf, giving migration advice
@@ -63,6 +88,8 @@ A focused, bilingual (English/Nepali) PWA that helps Nepalese migrants in Austra
 🔄 HANDOFF: whenever a question crosses into advice territory → "Consult a registered
             migration agent (verify at mara.gov.au using their MARN)"
 ```
+
+**Legal status — do not overstate:** `docs/legal/legal-memo.md`'s verdict is **"GO-WITH-CONDITIONS,"** not an unconditional clearance. Condition 4 (a written opinion from a MARN-registered migration agent confirming autofill doesn't constitute "immigration assistance" under Migration Act 1958 s.276) has **not yet been obtained**. This gates public launch of F4b, not development — see §16.
 
 ---
 
@@ -74,97 +101,79 @@ A focused, bilingual (English/Nepali) PWA that helps Nepalese migrants in Austra
 
 3. **Fail safe, not silent** — Every AI call has a confidence threshold. Low-confidence outputs are flagged, not auto-accepted. The user always has a manual fallback path.
 
-4. **Cheap until proven** — Use free tiers wherever possible (Supabase, Claude, Vercel). Only pay when traction justifies it. The entire POC should cost < $50/month.
+4. **Cheap until proven** — Use GCP's free/low tiers wherever possible (Cloud Run scale-to-zero, Cloud SQL smallest tier). Only pay when traction justifies it.
 
 5. **Progressive disclosure** — Don't overwhelm new users with all 4 features. Onboard one feature at a time with clear value demonstration.
 
 6. **Offline-capable where possible** — F1 (Tracker) and F2 (Calculator) work without internet. F3 (Checklist) and F4 (Form Helper) require connectivity for AI calls.
 
-7. **RLS everywhere** — Row Level Security on all Supabase tables from day one. Users can only access their own data.
+7. **RLS-equivalent everywhere** — Every user-scoped Cloud SQL table enforces row ownership (`owner_uid` scoping in every query, mirroring manaslu's model in its doc 07) from day one. Users can only access their own data.
+
+8. **One cloud, one auth system** — Everything lives in GCP; the end-user identity token (GCP Identity Platform) is the same token forwarded to manaslu, verified there as a resource server. No auth bridging between clouds.
 
 ---
 
 ## 3. Repository Structure
 
 ```
-saathi/                              # Monorepo root
+saathi/                              # This repo — frontend + F1/F2/F3 + F4 integration
 ├── web/                             # Next.js PWA (frontend)
 │   ├── app/                         # App Router pages
-│   │   ├── (auth)/                  # Login/register
+│   │   ├── (auth)/                  # Login/register (GCP Identity Platform)
 │   │   ├── (dashboard)/             # Main app shell
 │   │   │   ├── tracker/             # F1 — Visa Tracker
 │   │   │   ├── calculator/          # F2 — Points Calculator
 │   │   │   ├── checklist/           # F3 — Document Checklist
-│   │   │   ├── form-helper/         # F4 — Form Helper
+│   │   │   ├── form-helper/         # F4 — Form Explainer (own) + Scan/Fill (renders manaslu API)
 │   │   │   └── settings/            # Profile, language toggle
-│   │   └── api/                     # Next.js API routes (light proxy)
+│   │   └── api/                     # Next.js API routes (BFF — forwards JWT to manaslu, see §10)
 │   ├── components/
 │   │   ├── ui/                      # Design system (shadcn/ui based)
 │   │   ├── features/                # Feature-specific components
 │   │   │   ├── tracker/
 │   │   │   ├── calculator/
 │   │   │   ├── checklist/
-│   │   │   └── form-helper/
+│   │   │   └── form-helper/         # incl. manaslu-review/, transliteration-picker/
 │   │   └── shared/                  # Shared: LanguageToggle, Disclaimer, etc.
 │   ├── lib/
-│   │   ├── supabase.ts              # Supabase client (browser)
+│   │   ├── auth.ts                  # GCP Identity Platform client
+│   │   ├── manaslu-client.ts        # Generated TS client for manaslu's API (from its OpenAPI spec)
 │   │   ├── i18n.ts                  # Internationalization (EN/NP)
 │   │   └── constants.ts             # Visa types, form lists, etc.
 │   ├── public/
 │   │   └── locales/                 # EN/NP translation files
 │   └── next.config.js
 │
-├── api/                             # FastAPI (heavy AI pipelines)
+├── api/                             # FastAPI — F1/F2/F3 CRUD + F4a RAG (F4b lives in manaslu)
 │   ├── app/
 │   │   ├── routers/
-│   │   │   ├── scan.py              # F4 — document upload + classify
-│   │   │   ├── extract.py           # F4 — schema + open extraction
-│   │   │   ├── fill.py              # F4 — PDF fill (AcroForm)
-│   │   │   ├── explain.py           # F4 — RAG field explanation
+│   │   │   ├── tracker.py           # F1 — visa CRUD + reminder scheduling
+│   │   │   ├── calculator.py        # F2 — points calculation endpoint
+│   │   │   ├── checklist.py         # F3 — checklist generation endpoint
+│   │   │   ├── explain.py           # F4a — RAG field explanation
 │   │   │   └── health.py            # Health check
 │   │   ├── services/
-│   │   │   ├── claude_client.py     # Claude Vision + text API wrapper
-│   │   │   ├── classifier.py        # Document type classification
-│   │   │   ├── extractor.py         # Schema-driven extraction
-│   │   │   ├── validator.py         # MRZ checksum, date plausibility, etc.
-│   │   │   ├── confidence.py        # Per-field confidence scoring
-│   │   │   ├── pdf_filler.py        # pdf-lib AcroForm population
+│   │   │   ├── claude_client.py     # Claude text API wrapper (F4a explanations only — no vision here)
 │   │   │   ├── rag_service.py       # Vector search + LLM grounding
 │   │   │   └── knowledge_refresh.py # Scheduled ingestion of Home Affairs pages
 │   │   ├── schemas/
-│   │   │   ├── documents.py         # Per-document-type extraction schemas
-│   │   │   ├── forms.py             # Form-field mapping manifests
+│   │   │   ├── forms.py             # Form-field manifests (labels/explanations — NOT AcroForm mapping, that's manaslu's)
 │   │   │   └── points.py            # Points calculator rules schema
 │   │   └── core/
 │   │       ├── config.py            # Settings from env vars
-│   │       ├── supabase.py          # Supabase admin client
+│   │       ├── db.py                # Cloud SQL client (via Cloud SQL connector)
 │   │       └── errors.py            # Typed error responses
 │   ├── tests/
 │   └── requirements.txt
 │
-├── supabase/
-│   ├── functions/                   # Edge Functions (lightweight APIs)
-│   │   ├── tracker/
-│   │   │   └── index.ts             # Visa CRUD + reminder scheduling
-│   │   ├── calculator/
-│   │   │   └── index.ts             # Points calculation endpoint
-│   │   ├── checklist/
-│   │   │   └── index.ts             # Checklist generation endpoint
-│   │   └── _shared/
-│   │       ├── auth.ts              # JWT validation middleware
-│   │       ├── db.ts                # Supabase client wrapper
-│   │       └── errors.ts            # Error response helpers
-│   └── migrations/
-│       ├── 001_users.sql            # User profiles
+├── db/
+│   └── migrations/                  # Alembic migrations — Cloud SQL Postgres
+│       ├── 001_users.sql            # uid mirror + profile prefs (identity itself lives in Identity Platform)
 │       ├── 002_visas.sql            # Visa tracker tables
-│       ├── 003_checklists.sql       # Checklist + document tables
-│       ├── 004_form_extractions.sql # Form extraction audit tables
-│       └── 005_knowledge_base.sql   # RAG knowledge base tables
+│       ├── 003_checklists.sql       # Checklist tables
+│       └── 004_knowledge_base.sql   # RAG knowledge base tables (pgvector)
 │
-├── knowledge/                       # Curated knowledge base
-│   ├── forms/                       # Form field manifests
-│   │   ├── form-80.json             # AcroForm field names + labels
-│   │   └── form-1221.json
+├── knowledge/                       # Curated knowledge base (F4a explanations, F3 checklist content)
 │   ├── visa-types/                  # Visa conditions + requirements
 │   │   ├── 500-student.json
 │   │   ├── 485-graduate.json
@@ -175,75 +184,78 @@ saathi/                              # Monorepo root
 │
 ├── docs/
 │   ├── README.md                    # Project overview
-│   ├── PRD.md                       # Product requirements (copied reference)
+│   ├── PRD.md                       # Product requirements
 │   ├── ARCHITECTURE.md              # This file
+│   ├── BUILD-SCHEDULE.md            # Phase-by-phase build plan
 │   ├── architecture/
-│   │   ├── f1-visa-tracker.md       # F1 detailed architecture
-│   │   ├── f2-points-calculator.md  # F2 detailed architecture
-│   │   ├── f3-document-checklist.md # F3 detailed architecture
-│   │   ├── f4-form-helper.md        # F4 detailed architecture
-│   │   ├── scan-pipeline.md         # Document scan + form-fill pipeline
-│   │   ├── rag-architecture.md      # RAG & knowledge base design
-│   │   └── ui-ux-flows.md           # Detailed UI/UX flows per feature
+│   │   ├── ui-ux-flows.md           # Canonical UI/UX flows (all features)
+│   │   ├── f4-manaslu-integration.md# Saathi's side of the F4b contract (see manaslu/docs/architecture/ for the pipeline itself)
+│   │   └── archive/                 # Superseded drafts, kept for history
 │   ├── research/
-│   │   ├── market-research.md       # Comprehensive market analysis
-│   │   ├── competitor-analysis.md   # Competitive landscape
-│   │   └── user-research.md         # Target user research
+│   │   ├── market-and-competitive-analysis.md  # Consolidated market + competitive research
+│   │   └── archive/                 # Superseded drafts
 │   └── legal/
 │       ├── legal-memo.md            # Visa form-fill legality analysis
 │       └── fallback-answer-sheet.md # Legal fallback architecture
 │
 ├── diagrams/
-│   └── system-architecture.html     # Interactive SVG architecture diagram
+│   └── saathi-ui-mockup.html        # Interactive HTML mockup, all 4 feature screens
 │
 ├── .env.example                     # Environment variables template
-├── docker-compose.yml               # Local development (FastAPI + Supabase local)
 └── README.md
 ```
+
+**Related repo:** [`manaslu`](../../manaslu) — headless scan/extract/form-fill agent (F4b). Its own architecture docs (`manaslu/docs/architecture/`, 11 documents) are the source of truth for that pipeline; not duplicated here.
 
 ---
 
 ## 4. System Context Diagram
 
 ```
-                         ┌─────────────────────────────────┐
-                         │     SAATHI PLATFORM              │
-                         │                                  │
-  ┌──────────┐           │  ┌────────────────────────────┐ │
-  │  Nepalese │           │  │   Next.js PWA              │ │
-  │  Migrant  │──HTTPS──▶│  │   (mobile-first, bilingual) │ │
-  │  in AU    │           │  │                             │ │
-  └──────────┘           │  │  F1 Tracker   F2 Calculator │ │
-                         │  │  F3 Checklist F4 Form Helper│ │
-                         │  └──────────┬─────────────────┘ │
-                         │             │                     │
-                         │    ┌────────▼─────────────────┐  │
-                         │    │  Supabase Edge Functions  │  │
-                         │    │  (lightweight API layer)  │  │
-                         │    │  /tracker  /calculator    │  │
-                         │    │  /checklist               │  │
-                         │    └──────────┬─────────────────┘  │
-                         │               │                    │
-                         │    ┌──────────▼─────────────────┐  │
-                         │    │  FastAPI (AI Pipeline)      │  │
-                         │    │  /scan  /extract  /fill     │  │
-                         │    │  /explain  (RAG)            │  │
-                         │    └──────────┬─────────────────┘  │
-                         │               │                    │
-                         │    ┌──────────▼─────────────────┐  │
-                         │    │  Supabase                   │  │
-                         │    │  PostgreSQL · Auth · Storage│  │
-                         │    └────────────────────────────┘  │
-                         └─────────────────────────────────────┘
-                                          │
-                    ┌─────────────────────┼──────────────────────┐
-                    ▼                     ▼                      ▼
-           ┌──────────────┐    ┌──────────────────┐    ┌──────────────┐
-           │ Claude Sonnet │    │ Home Affairs     │    │ SkillSelect   │
-           │ (Anthropic)   │    │ (immi.gov.au)    │    │ (live data)   │
-           │ Vision + Text │    │ Source of truth  │    │ Invitation    │
-           │ Nepali capable│    │ for all content  │    │ rounds data   │
-           └──────────────┘    └──────────────────┘    └──────────────┘
+                         ┌───────────────────────────────────┐
+                         │        SAATHI (this repo)          │
+                         │                                    │
+  ┌──────────┐           │  ┌──────────────────────────────┐  │
+  │ Nepalese │           │  │   Next.js PWA                 │  │
+  │ Migrant  │──HTTPS───▶│  │   (mobile-first, bilingual)   │  │
+  │ in AU    │           │  │                               │  │
+  └──────────┘           │  │ F1 Tracker   F2 Calculator    │  │
+                         │  │ F3 Checklist F4a Explain      │  │
+                         │  │ F4b Scan/Fill (renders manaslu│  │
+                         │  │      session events)          │  │
+                         │  └─────────────┬─────────────────┘  │
+                         │                │                     │
+                         │     ┌──────────▼─────────────────┐   │
+                         │     │  Cloud Run — FastAPI        │   │
+                         │     │  /tracker /calculator       │   │
+                         │     │  /checklist /explain (RAG)  │   │
+                         │     └──────────┬─────────────────┘   │
+                         │                │                     │
+                         │     ┌──────────▼─────────────────┐   │
+                         │     │  Cloud SQL (Postgres        │   │
+                         │     │  + pgvector) · GCS           │   │
+                         │     │  · Identity Platform         │   │
+                         │     └─────────────────────────────┘   │
+                         └───────────────────┬─────────────────┘
+                                              │ REST + SSE (v1)
+                                              │ end-user JWT forwarded
+                         ┌───────────────────▼─────────────────┐
+                         │     MANASLU (separate repo)          │
+                         │  Claude tool-use loop (Cloud Run)    │
+                         │  scan → extract → validate →         │
+                         │  transliterate → map → fill          │
+                         │  profile_facts vault · audit log     │
+                         │  Cloud SQL (own DB) · GCS (AU)       │
+                         └───────────────────┬─────────────────┘
+                                              │
+                    ┌─────────────────────────┼──────────────────────┐
+                    ▼                         ▼                      ▼
+           ┌──────────────┐         ┌──────────────────┐   ┌──────────────┐
+           │ Claude Opus/  │         │ Home Affairs      │   │ SkillSelect   │
+           │ Sonnet/Haiku  │         │ (immi.gov.au)      │   │ (live data)   │
+           │ (Anthropic)   │         │ Source of truth    │   │ Invitation    │
+           │               │         │ for all content     │   │ rounds data   │
+           └──────────────┘         └──────────────────┘   └──────────────┘
 ```
 
 ---
@@ -261,73 +273,62 @@ saathi/                              # Monorepo root
 │  │ Tracker  │ │ Calc     │ │ Checklist│ │ Form Helper          │   │
 │  │          │ │          │ │          │ │ ┌────────┐ ┌───────┐ │   │
 │  │ Offline  │ │ Offline  │ │ Online   │ │ │Explain │ │Scan   │ │   │
-│  │ capable  │ │ capable  │ │ only     │ │ │(RAG)   │ │+ Fill │ │   │
+│  │ capable  │ │ capable  │ │ only     │ │ │(own RAG│ │+ Fill │ │   │
+│  │          │ │          │ │          │ │ │ API)   │ │(manaslu)│  │
 │  └────┬─────┘ └────┬─────┘ └────┬─────┘ │ └────┬───┘ └───┬───┘ │   │
 │       │            │            │        └──────┼───────┼──────┘   │
 │       │            │            │               │       │           │
-│  ┌────▼────────────▼────────────▼───────────────▼───────▼──────┐   │
-│  │              Shared: Auth · i18n · Disclaimer · Design Sys  │   │
-│  └─────────────────────────────────────────────────────────────┘   │
-└──────────────────────────────┬──────────────────────────────────────┘
-                               │ HTTPS + JWT
-                    ┌──────────▼──────────┐
-                    │  SUPABASE EDGE      │
-                    │  FUNCTIONS (Deno)   │
-                    │                     │
-                    │  /tracker    F1     │──▶ PostgreSQL (visas table)
-                    │  /calculator F2     │──▶ PostgreSQL (saved results)
-                    │  /checklist  F3     │──▶ PostgreSQL (checklists)
-                    │                     │
-                    │  Fast, near-DB,     │
-                    │  sub-50ms responses │
-                    └──────────┬──────────┘
-                               │
-                    ┌──────────▼──────────┐
-                    │  FASTAPI (Python)    │
-                    │  AI Pipeline Server  │
-                    │                     │
-                    │  /scan/upload        │──▶ Supabase Storage
-                    │  /scan/classify      │──▶ Claude Vision
-                    │  /scan/extract       │──▶ Claude Vision
-                    │  /scan/fill          │──▶ pdf-lib
-                    │  /explain/field      │──▶ Claude + pgvector
-                    │                     │
-                    │  Heavy AI work,      │
-                    │  2-5s responses      │
-                    └──────────┬──────────┘
-                               │
-                    ┌──────────▼──────────┐
-                    │  SUPABASE            │
-                    │                     │
-                    │  PostgreSQL          │
-                    │  ├── users           │
-                    │  ├── visas           │
-                    │  ├── checklists      │
-                    │  ├── form_extractions│
-                    │  ├── knowledge_base  │
-                    │  └── audit_log       │
-                    │                     │
-                    │  Auth (JWT)          │
-                    │  Storage (user docs) │
-                    │  pgvector (RAG)      │
-                    └─────────────────────┘
+│  ┌────▼────────────▼────────────▼───────────────▼───┐   │           │
+│  │       Shared: Auth · i18n · Disclaimer · Design   │   │           │
+│  └────────────────────────────────────────────────────┘   │           │
+└──────────────────────────────┬───────────────────────────┼──────────┘
+                               │ HTTPS + JWT                │ HTTPS + JWT
+                               │ (saathi API)                │ (forwarded to manaslu)
+                    ┌──────────▼──────────┐        ┌────────▼─────────────┐
+                    │  CLOUD RUN           │        │  MANASLU (separate   │
+                    │  FastAPI (saathi)    │        │  repo/service)       │
+                    │                      │        │                      │
+                    │  /tracker    F1      │───┐    │  /v1/sessions        │
+                    │  /calculator F2      │   │    │  /v1/sessions/{id}/  │
+                    │  /checklist  F3      │   │    │    messages (SSE)    │
+                    │  /explain    F4a RAG │   │    │  /v1/.../documents   │
+                    │                      │   │    │  /v1/.../confirmations│
+                    └──────────┬───────────┘   │    │                      │
+                               │               │    │  Claude tool-use loop │
+                    ┌──────────▼──────────┐    │    │  scan/extract/fill/  │
+                    │  CLOUD SQL           │    │    │  transliterate tools │
+                    │  (saathi's own DB)    │    │    └──────────┬───────────┘
+                    │  ├── visas            │    │               │
+                    │  ├── checklists       │    │    ┌──────────▼───────────┐
+                    │  └── knowledge_base   │    │    │  MANASLU'S OWN DB     │
+                    │      (pgvector)       │    │    │  documents, extractions,
+                    │                      │    │    │  profile_facts (vault),
+                    │  GCS (F1-F3 assets)   │    │    │  filled_forms, audit_log
+                    │  Identity Platform    │    └───▶│  (Cloud SQL + GCS, AU) │
+                    │  (shared auth for     │         └───────────────────────┘
+                    │   both services)      │
+                    └───────────────────────┘
 ```
+
+**Note on F4b:** saathi never talks to Claude Vision, pypdf, or an AcroForm manifest directly — all of that is manaslu's internal implementation. Saathi's Next.js BFF route forwards the end-user's Identity Platform JWT to manaslu, opens/resumes a session, and renders the SSE events manaslu emits (`extraction.ready`, `review.required`, `fill.completed`) into the review UI. Full contract: `manaslu/docs/architecture/06-service-api.md`.
 
 ---
 
 ## 6. Data Architecture
 
+**Scope note:** this schema is saathi's own database only. Documents, extractions, the profile vault, filled PDFs, and their audit trail live in manaslu's database — saathi never stores a copy.
+
 ### Entity Relationship Diagram
 
 ```
 users ─────────┬─────────────────────────────────────────────┐
-│ id (PK)      │                                             │
-│ email        │                                             │
-│ name_np      │  visas ───────────────────┐                 │
-│ name_en      │  │ id (PK)               │                 │
-│ language_pref│  │ user_id (FK → users)   │                 │
-│ created_at   │  │ visa_subclass          │                 │
-│              │  │ visa_type              │                 │
+│ uid (PK, from Identity Platform — no password/credential data here) │
+│ name_np      │                                             │
+│ name_en      │  visas ───────────────────┐                 │
+│ language_pref│  │ id (PK)               │                 │
+│ created_at   │  │ uid (FK → users)       │                 │
+│              │  │ visa_subclass          │                 │
+              │  │ visa_type              │                 │
               │  │ grant_date             │                 │
               │  │ expiry_date            │                 │
               │  │ conditions (JSONB)      │                 │
@@ -342,28 +343,15 @@ users ─────────┬──────────────�
               │                                             │
               │  checklist_sessions ──────┐                  │
               │  │ id (PK)               │                  │
-              │  │ user_id (FK → users)   │                  │
+              │  │ uid (FK → users)       │                  │
               │  │ visa_type              │                  │
               │  │ answers (JSONB)         │                  │
-              ├──┤ generated_checklist     │                  │
-              │  │   (JSONB)              │                  │
-              │  │ status                  │                  │
-              │  │ created_at              │                  │
-              │  └─────────────────────────┘                  │
-              │                                             │
-              │  form_extractions ─────────┐                 │
-              │  │ id (PK)                │                 │
-              │  │ user_id (FK → users)    │                 │
-              │  │ form_type               │                 │
-              │  │ source_doc_urls (JSONB) │                 │
-              └──┤ extracted_fields (JSONB)│                 │
-                 │ confidence_scores (JSONB)                  │
-                 │ filled_pdf_url          │                 │
-                 │ model_used              │                 │
-                 │ audit_log (JSONB)       │                 │
-                 │ created_at              │                 │
-                 └─────────────────────────┘                 │
-                                                            │
+              └──┤ generated_checklist     │                  │
+                 │   (JSONB)              │                  │
+                 │ status                  │                  │
+                 │ created_at              │                  │
+                 └─────────────────────────┘                  │
+                                                              │
                  knowledge_base ───────────┐                 │
                  │ id (PK)                 │                 │
                  │ content_type             │                 │
@@ -375,27 +363,29 @@ users ─────────┬──────────────�
                  │ content_np              │                 │
                  │ source_url              │                 │
                  │ last_verified           │                 │
-                 │ embedding (vector(1536))│                 │
-                 └─────────────────────────┘                 │
+                 │ embedding (vector(1024))│  ◄── Voyage AI multilingual-2 (see ADR-007), not OpenAI
+                 └─────────────────────────┘
 ```
+
+manaslu's schema (for reference — owned and versioned in that repo, `manaslu/docs/architecture/08-data-layer.md`): `consents`, `sessions`, `documents`, `extractions`, `user_entries`, `profile_facts` (the vault), `review_requests`, `filled_forms`, `fill_values`, `audit_log`.
 
 ### Key Indexes
 ```sql
-CREATE INDEX idx_visas_user_expiry ON visas(user_id, expiry_date);
-CREATE INDEX idx_checklist_user ON checklist_sessions(user_id, created_at DESC);
-CREATE INDEX idx_form_extractions_user ON form_extractions(user_id, created_at DESC);
-CREATE INDEX idx_knowledge_embedding ON knowledge_base 
+CREATE INDEX idx_visas_user_expiry ON visas(uid, expiry_date);
+CREATE INDEX idx_checklist_user ON checklist_sessions(uid, created_at DESC);
+CREATE INDEX idx_knowledge_embedding ON knowledge_base
   USING ivfflat (embedding vector_cosine_ops);
 ```
 
-### RLS Policies (Every Table)
+### Row-level ownership (every table)
+Cloud SQL Postgres RLS, mirroring manaslu's resource-ownership model:
 ```sql
--- Pattern applied to all user-scoped tables
 ALTER TABLE visas ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "Users can only access own visas"
   ON visas FOR ALL
-  USING (auth.uid() = user_id);
+  USING (current_setting('app.current_uid')::text = uid);
 ```
+(`app.current_uid` set per-request from the verified Identity Platform JWT in FastAPI middleware — same pattern manaslu uses for its own tables.)
 
 ---
 
@@ -422,18 +412,19 @@ CREATE POLICY "Users can only access own visas"
 │  ┌──────────────────┐     │  └─────────────────────┘    │   │
 │  │  Reminder Engine │     │                             │   │
 │  │                  │     │  ┌─────────────────────┐    │   │
-│  │  pg_cron job ────┼──▶  │  │ Next Steps           │    │   │
-│  │  runs daily      │     │  │ → Apply for 485      │    │   │
-│  │  checks expiry   │     │  │   before 2027-03-15  │    │   │
-│  │  fires at:       │     │  └─────────────────────┘    │   │
-│  │  180d, 90d,      │     └─────────────────────────────┘   │
+│  │  Cloud Scheduler ┼──▶  │  │ Next Steps           │    │   │
+│  │  triggers daily  │     │  │ → Apply for 485      │    │   │
+│  │  Cloud Run job,  │     │  │   before 2027-03-15  │    │   │
+│  │  checks expiry   │     │  └─────────────────────┘    │   │
+│  │  fires at:       │     └─────────────────────────────┘   │
+│  │  180d, 90d,      │                                       │
 │  │  30d, 7d before  │                                       │
 │  └──────────────────┘                                       │
 │                                                              │
-│  Data: visas table (user-scoped, RLS)                        │
-│  API: Edge Function /tracker (CRUD)                          │
-│  Notifications: Web Push API + optional email                │
-│  Offline: Service Worker caches visa data locally            │
+│  Data: visas table (Cloud SQL, row-owned)                    │
+│  API: Cloud Run FastAPI /tracker (CRUD)                      │
+│  Notifications: Firebase Cloud Messaging (FCM)                │
+│  Offline: Service Worker caches visa data locally             │
 └─────────────────────────────────────────────────────────────┘
 ```
 
@@ -446,11 +437,10 @@ DELETE /tracker/:id      → Remove a visa
 ```
 
 ### Reminder Architecture
-- **pg_cron** runs daily at 2am AEST
+- **Cloud Scheduler** triggers a Cloud Run job daily at 2am AEST
 - Query: `SELECT * FROM visas WHERE expiry_date - CURRENT_DATE IN (180, 90, 30, 7) AND reminder_Nd_sent = false`
-- Sends push notification via Web Push API
+- Sends push notification via **FCM** (works uniformly across web push + any future native wrapper, one SDK instead of the Web Push/OneSignal split debated earlier — see ADR-005)
 - Sets `reminder_Nd_sent = true` flag
-- No external scheduler needed at POC scale
 
 ### Offline Support
 - Service Worker caches visa data from last successful fetch
@@ -497,8 +487,8 @@ DELETE /tracker/:id      → Remove a visa
 │  └───────────────────────┘                                       │
 │                                                                   │
 │  Data: Client-side calculation (no DB write required)             │
-│  API: Edge Function /calculator (validate + log anonymously)       │
-│  SkillSelect data: Fetched from knowledge/points-criteria/        │
+│  API: Cloud Run FastAPI /calculator (validate + log anonymously)  │
+│  SkillSelect data: Fetched from knowledge/points-criteria/         │
 │  Updated manually or via scheduled scraper                         │
 └──────────────────────────────────────────────────────────────────┘
 ```
@@ -613,62 +603,17 @@ The points calculator is **purely rule-based** — a static JSON configuration +
 └──────────────────────────────────────────────────────────────┘
 ```
 
-### Decision Tree Storage
-
-Each visa type has a JSON decision tree file:
-```json
-{
-  "visa_subclass": "485",
-  "streams": ["graduate_work", "post_study_work"],
-  "questions": [
-    {
-      "id": "stream",
-      "label_en": "Which stream are you applying for?",
-      "label_np": "तपाईं कुन stream बाट apply गर्दै हुनुहुन्छ?",
-      "options": [
-        {"value": "graduate_work", "label_en": "Graduate Work", "label_np": "ग्रेजुएट वर्क"},
-        {"value": "post_study_work", "label_en": "Post-Study Work", "label_np": "पोस्ट-स्टडी वर्क"}
-      ]
-    },
-    {
-      "id": "onshore",
-      "label_en": "Are you applying from inside Australia?",
-      "condition": "always",
-      "options": [
-        {"value": true, "label_en": "Yes", "label_np": "हो"},
-        {"value": false, "label_en": "No", "label_np": "होइन"}
-      ]
-    }
-  ],
-  "items": [
-    {
-      "id": "cert-passport",
-      "category": "identity",
-      "condition": "always",
-      "title_en": "Certified copy of passport bio page",
-      "title_np": "पासपोर्टको प्रमाणित प्रतिलिपि",
-      "description_en": "A certified copy of the bio-data page of your passport...",
-      "description_np": "तपाईंको पासपोर्टको जैविक डाटा पृष्ठको प्रमाणित प्रतिलिपि...",
-      "how_to_get_en": "Take your passport to a JP (Justice of the Peace)...",
-      "how_to_get_np": "आफ्नो पासपोर्ट लिएर JP कहाँ जानुहोस्...",
-      "common_mistakes_en": ["Not certified by authorised person", "Expired certification (>6 months)"],
-      "common_mistakes_np": ["अधिकृत व्यक्तिबाट प्रमाणित नगरिएको", "प्रमाणीकरणको म्याद सकिएको (>६ महिना)"],
-      "source_url": "https://immi.homeaffairs.gov.au/visas/getting-a-visa/visa-listing/temporary-graduate-485",
-      "last_verified": "2026-06-28"
-    }
-  ]
-}
-```
-
 ### Design Decision: Decision Tree, NOT LLM
 
 Same reasoning as F2 — checklist generation is deterministic. No LLM required for the POC version of F3. An LLM could enhance it later (e.g., "I have an unusual document — is it equivalent?") but that's Phase 2.
 
 ---
 
-## 10. F4 — Form Helper + Scan Pipeline
+## 10. F4 — Form Helper
 
-### 10.1 Form Explainer (RAG-Based)
+F4 splits across two capabilities with different owners:
+
+### 10.1 F4a — Form Explainer (RAG, saathi's own build)
 
 ```
 ┌────────────────────────────────────────────────────────────────┐
@@ -711,91 +656,55 @@ Same reasoning as F2 — checklist generation is deterministic. No LLM required 
 └────────────────────────────────────────────────────────────────┘
 ```
 
-### 10.2 Document Scan + Auto-Fill Pipeline
+Field label + explanation content can be pre-generated once per field (they don't vary per user) and served from `knowledge_base`, turning most requests into a DB read rather than a live Claude call — same cost lever manaslu uses for its own bilingual manifests.
+
+### 10.2 F4b — Scan & Form-Fill (manaslu, consumed via API)
+
+Saathi does **not** implement classify/extract/validate/transliterate/fill. It calls manaslu:
 
 ```
 ┌─────────────────────────────────────────────────────────────────────┐
-│                    F4b — SCAN & FORM-FILL PIPELINE                   │
+│         F4b — WHAT SAATHI DOES (the rest is manaslu's, see its       │
+│                docs/architecture/ — not duplicated here)             │
 │                                                                      │
-│  ┌──────────┐   ┌──────────┐   ┌──────────┐   ┌──────────────────┐  │
-│  │ 1.UPLOAD │──▶│2.CLASSIFY│──▶│3.EXTRACT │──▶│ 4.VALIDATE       │  │
-│  │          │   │          │   │          │   │                  │  │
-│  │ User     │   │ Claude   │   │ Claude   │   │ MRZ checksum    │  │
-│  │ uploads  │   │ Vision:  │   │ Vision:  │   │ Date plausibility│  │
-│  │ passport │   │ "This is │   │ "Extract │   │ ABN/BSB format  │  │
-│  │ payslip  │   │  a ___"  │   │  fields" │   │ Cross-doc check │  │
-│  │ bank stmt│   │          │   │          │   │                  │  │
-│  └──────────┘   └──────────┘   └──────────┘   └────────┬─────────┘  │
-│                                                         │            │
-│                      ┌──────────────────────────────────┘            │
-│                      ▼                                               │
-│  ┌──────────────────────────────────────────────────────┐           │
-│  │                5. CONFIDENCE TIERING                  │           │
-│  │                                                       │           │
-│  │  ≥ 85%  → 🟢 HIGH    Auto-fill, green highlight      │           │
-│  │  50-84% → 🟡 MEDIUM  Pre-fill, amber, confirm required│           │
-│  │  < 50%  → 🔴 LOW     Leave blank, user enters manually│           │
-│  │  FAIL   → ⚪ BLANK   "Could not read — enter manually"│           │
-│  └───────────────────────┬──────────────────────────────┘           │
-│                          │                                           │
-│                          ▼                                           │
-│  ┌──────────────────────────────────────────────────────┐           │
-│  │                6. USER REVIEW                         │           │
-│  │                                                       │           │
-│  │  ┌─────────────┬──────────────┬──────────────────┐   │           │
-│  │  │ Field Name  │ Extracted    │ Source Document  │   │           │
-│  │  ├─────────────┼──────────────┼──────────────────┤   │           │
-│  │  │ Family Name │ KARKI     🟢 │ [passport img]   │   │           │
-│  │  │ Given Names │ PRABIN    🟢 │ [passport img]   │   │           │
-│  │  │ DOB         │ 01/01/1990🟡 │ [passport img]   │   │           │
-│  │  │ Employer    │ _________🔴 │ [payslip img]    │   │           │
-│  │  └─────────────┴──────────────┴──────────────────┘   │           │
-│  │                                                       │           │
-│  │  User confirms, corrects, or enters each field        │           │
-│  └───────────────────────┬──────────────────────────────┘           │
-│                          │                                           │
-│                          ▼                                           │
-│  ┌──────────────────────────────────────────────────────┐           │
-│  │                7. PDF FILL (AcroForm)                  │           │
-│  │                                                       │           │
-│  │  pdf-lib: write confirmed values → Form 80 PDF       │           │
-│  │  Output: filled + annotated PDF with audit trail      │           │
-│  └───────────────────────┬──────────────────────────────┘           │
-│                          │                                           │
-│                          ▼                                           │
-│  ┌──────────────────────────────────────────────────────┐           │
-│  │                8. EXPORT & AUDIT                       │           │
-│  │                                                       │           │
-│  │  Download filled PDF | Store in Supabase Storage      │           │
-│  │  Audit log: user_id, doc_type, fields, confidence     │           │
-│  │  Retention: user-controlled (GDPR/Privacy Act)        │           │
-│  └──────────────────────────────────────────────────────┘           │
+│  1. User opens Form Helper → Scan flow                               │
+│     saathi BFF: POST manaslu /v1/sessions (forwards end-user JWT)    │
+│                                                                      │
+│  2. User uploads document(s)                                        │
+│     saathi BFF: signed-URL handshake → GCS (manaslu's bucket)        │
+│     or proxies multipart to manaslu /v1/sessions/{id}/documents      │
+│                                                                      │
+│  3. saathi opens SSE stream: /v1/sessions/{id}/messages              │
+│     Renders events as they arrive:                                   │
+│     ┌────────────────────┬──────────────────────────────────────┐   │
+│     │ tool.started/finished│ progress indicator (classifying...) │   │
+│     │ extraction.ready     │ review table: field, value, confidence,│  │
+│     │                      │ source-doc crop, bilingual label     │   │
+│     │                      │ ("pre-filled from your saved profile" │  │
+│     │                      │  badge if sourced from the vault,     │  │
+│     │                      │  not a fresh scan)                   │   │
+│     │ review.required       │ pauses; if transliteration choice —  │   │
+│     │                      │ show source Devanagari snippet +      │   │
+│     │                      │ ranked candidates + free-text box     │   │
+│     │ fill.completed        │ download link (filled PDF + annex)    │   │
+│     └────────────────────┴──────────────────────────────────────┘   │
+│                                                                      │
+│  4. User confirms/corrects → saathi BFF: POST .../confirmations      │
+│     (resumes manaslu's paused agent loop)                            │
+│                                                                      │
+│  5. GET .../artifacts/{id} → signed URL to filled PDF + audit annex  │
 └─────────────────────────────────────────────────────────────────────┘
 ```
 
-### F4 API Contracts
-```
-POST   /scan/upload          → Validate + store in Supabase Storage
-POST   /scan/classify        → Claude Vision: classify document type
-POST   /scan/extract         → Schema-driven + open extraction
-POST   /scan/fill            → Map extracted fields → AcroForm PDF fill
-GET    /scan/:id             → Retrieve extraction result + audit log
+Full event/endpoint contract, confidence-tier definitions, and the transliteration priority order: `manaslu/docs/architecture/06-service-api.md` and `04-transliteration.md`. Saathi-side detail (BFF routes, JWT forwarding, review-UI component spec): `docs/architecture/f4-manaslu-integration.md`.
 
-POST   /explain/field        → RAG: explain a form field in Nepali
-GET    /forms                → List supported forms
-GET    /forms/:form_id/fields → List all fields for a form
-```
-
-### Confidence Scoring Strategy
-Since Claude doesn't expose per-token confidence natively:
-1. **Dual extraction** — Run two independent Claude calls with different prompts (schema-driven + open); if both agree on value → high confidence
-2. **MRZ checksum** — Passport numbers validated against ISO 7064 MOD 7/11
-3. **Date plausibility** — Check against document type norms
-4. **Cross-document consistency** — Name on passport must match name on payslip
+**Confidence tiers (defined by manaslu, rendered by saathi):** HIGH ≥85% (pre-filled, green) · MED 50-84% (pre-filled amber, confirm required) · LOW <50% (blank, manual entry) · FAIL (blank, "could not read"). Never generated by saathi — these arrive in `extraction.ready` payloads.
 
 ---
 
 ## 11. RAG & Knowledge Architecture
+
+**Scope:** this is saathi's own knowledge service, backing F4a (field explanations) and F3 (checklist citations). It is unrelated to manaslu's internal data (documents/extractions/vault) — no overlap, no shared database.
 
 ### Knowledge Base Design
 
@@ -807,25 +716,24 @@ Since Claude doesn't expose per-token confidence natively:
 │  │  Content Sources    │     │  Ingestion Pipeline      │    │
 │  │                     │     │                          │    │
 │  │  immi.gov.au        │     │  1. Scheduled scraper   │    │
-│  │  • Form 80 page     │────▶│     (weekly)             │    │
-│  │  • Form 1221 page   │     │                          │    │
-│  │  • Visa conditions  │     │  2. Change detection:    │    │
-│  │  • Step-by-step     │     │     hash comparison vs   │    │
-│  │    guides           │     │     last ingested version│    │
-│  │                     │     │                          │    │
-│  │  SkillSelect        │     │  3a. If CHANGED:         │    │
-│  │  • Invitation rounds│     │      → Split into chunks │    │
-│  │  • Points table     │     │      → Generate embedding │    │
-│  │                     │     │      → Upsert pgvector    │    │
-│  │                     │     │      → Update last_verified│    │
-│  │  MARA website       │     │                          │    │
-│  │  • Agent register   │     │  3b. If UNCHANGED:       │    │
+│  │  • Form 80 page     │────▶│     (Cloud Run job,      │    │
+│  │  • Form 1221 page   │     │      weekly)             │    │
+│  │  • Visa conditions  │     │                          │    │
+│  │  • Step-by-step     │     │  2. Change detection:    │    │
+│  │    guides           │     │     hash comparison vs   │    │
+│  │                     │     │     last ingested version│    │
+│  │  SkillSelect        │     │                          │    │
+│  │  • Invitation rounds│     │  3a. If CHANGED:         │    │
+│  │  • Points table     │     │      → Split into chunks │    │
+│  │                     │     │      → Generate embedding │    │
+│  │  MARA website       │     │      → Upsert pgvector    │    │
+│  │  • Agent register   │     │      → Update last_verified│    │
+│  │                     │     │  3b. If UNCHANGED:       │    │
 │  │                     │     │      → Update last_checked│    │
-│  └─────────────────────┘     │      → Skip re-ingestion │    │
-│                              └──────────────────────────┘    │
+│  └─────────────────────┘     └──────────────────────────┘    │
 │                                                               │
 │  ┌──────────────────────────────────────────────────────┐    │
-│  │  Vector Store (pgvector 1536-dim)                    │    │
+│  │  Vector Store (pgvector, Cloud SQL)                   │    │
 │  │                                                       │    │
 │  │  Chunking strategy:                                   │    │
 │  │  • Form fields: 1 chunk per field (EN + NP)          │    │
@@ -833,18 +741,19 @@ Since Claude doesn't expose per-token confidence natively:
 │  │  • Guides: ~500-token chunks with 50-token overlap   │    │
 │  │  • Checklist items: 1 chunk per item                 │    │
 │  │                                                       │    │
-│  │  Embedding model: text-embedding-3-small (OpenAI)     │    │
-│  │  → 1536 dimensions, $0.02/1M tokens                  │    │
-│  │  → Free tier covers entire knowledge base            │    │
+│  │  Embedding model: Voyage AI voyage-multilingual-2    │    │
+│  │  (1024-dim) — NOT OpenAI text-embedding-3, which     │    │
+│  │  measurably degrades on Nepali/Devanagari — see       │    │
+│  │  ADR-007                                              │    │
 │  └──────────────────────────────────────────────────────┘    │
 │                                                               │
 │  ┌──────────────────────────────────────────────────────┐    │
 │  │  Retrieval → Generation Flow                          │    │
 │  │                                                       │    │
 │  │  1. User selects form + field                        │    │
-│  │  2. Query → embedding                                │    │
+│  │  2. Query → Voyage embedding                          │    │
 │  │  3. pgvector similarity search (cosine, top-3)        │    │
-│  │  4. Claude prompt:                                    │    │
+│  │  4. Claude Sonnet prompt:                              │    │
 │  │     "Using these excerpts from immi.gov.au:          │    │
 │  │      [chunk 1] [chunk 2] [chunk 3]                   │    │
 │  │      Explain what 'Family Name' means in Form 80.    │    │
@@ -852,30 +761,34 @@ Since Claude doesn't expose per-token confidence natively:
 │  │      Cite the source. If uncertain, say so."         │    │
 │  │  5. Return: { explanation_np, explanation_en,        │    │
 │  │               source_urls, confidence }              │    │
+│  │  6. Cache the result in knowledge_base — most fields  │    │
+│  │     are answered once and served from DB thereafter   │    │
 │  └──────────────────────────────────────────────────────┘    │
 └──────────────────────────────────────────────────────────────┘
 ```
 
 ### Content Freshness Strategy
-- **Scheduled scraper** (GitHub Action or pg_cron) runs weekly
+- **Scheduled scraper** (Cloud Scheduler → Cloud Run job) runs weekly
 - **Change detection**: compare content hash to last ingested version
 - **Staleness alert**: if any chunk has `last_verified > 90 days`, flag in admin dashboard
 - **Manual override**: curated JSON files in `knowledge/` take precedence over auto-ingested content
 
-### Bilingual Chunking
-Each knowledge chunk is stored with both English and Nepali text:
-```sql
-INSERT INTO knowledge_base (content_type, title_en, title_np, content_en, content_np, source_url, embedding)
-VALUES (
-  'form_field',
-  'Form 80 — Question 1: Family Name',
-  'फारम ८० — प्रश्न १: थर',
-  'Enter your family name exactly as it appears on your passport...',
-  'तपाईंको राहदानीमा जस्तो छ त्यस्तै थर लेख्नुहोस्...',
-  'https://immi.homeaffairs.gov.au/form-80',
-  '[1536-dim vector]'
-);
-```
+### F5 News & Events ingestion (Phase 2 — same worker, two new tables)
+
+F5 (PRD §4) extends this same ingestion worker rather than adding a new service:
+
+- **`news_items`** — allowlisted-source feed items: headline, source URL + name, published date, subclass/category tags, `summary_np`/`summary_en` (Claude Haiku via **Batch API** — non-interactive, 50% off), `summarised_at`. Aggregation contract: headline + ≤2-sentence summary + attribution + link out; full text is never stored or shown.
+- **`events`** — human-curated listings (lightweight admin sheet at MVP): title, date/time, city/online, free/paid, audience tags, organiser, registration URL, `marn_number` + `marn_verified_at` (**required, non-null, for any migration-topic seminar**), `listing_verified_at`, expiry.
+- Personalisation is a subclass-tag match against the user's F1 visa record — no ML, no profiles.
+- A rule-change news item can reference affected `knowledge_base` chunks, driving the "we're re-checking our checklist against this" state until re-verification.
+
+### F6 Agent Connect data (Phase 2 — three tables, one hard boundary)
+
+- **`agents`** — directory entries: name, `marn` + `marn_verified_at` (quarterly re-check job against the MARA register; lapsed → `delisted`), specialisation tags, languages, location/online, consult fee, response-time stats.
+- **`enquiries`** — user → agent introductions: topic, message, contact preference/call windows, status (`sent → viewed → responded → closed | withdrawn`), timestamps per transition.
+- **`enquiry_consents`** — the itemised share record: per-enquiry list of exactly which items were shared (contact / enquiry text / visa summary / points summary / checklist progress), consent version, granted/revoked timestamps. Revocation notifies the agent (deletion obligation) and closes the enquiry. Append-only history in `audit_log`.
+- **Hard boundary:** no API path exists from manaslu (documents, extractions, vault, filled forms) into F6 — document sharing with agents happens outside Saathi, by the user, deliberately. This is structural, not policy.
+- Agent-side surface at MVP: transactional email + a minimal token-authenticated response page (view enquiry, mark responded, propose call time) — a full agent portal only if volume justifies it.
 
 ---
 
@@ -888,36 +801,41 @@ VALUES (
 | **Frontend** | Next.js 14 (App Router) + PWA | Mobile-first; works offline; no App Store needed |
 | **UI Components** | shadcn/ui + Tailwind CSS | Bilingual-ready; accessible; customizable |
 | **i18n** | next-intl | Server + client translations; Devanagari font support |
-| **Light API** | Supabase Edge Functions (Deno/TS) | Collocated with DB; fast; same as Macrofi |
-| **AI API** | FastAPI (Python) + Railway | Heavy pipelines; streaming; RAG |
-| **Primary AI** | Claude Sonnet 4.5 (Anthropic) | Best Nepali support; vision + text; structured JSON |
+| **Frontend hosting** | Cloud Run (Next.js standalone build) | Same deploy pattern as the API and as manaslu — one platform |
+| **API** | FastAPI (Python) on Cloud Run | F1/F2/F3 CRUD + F4a RAG; same pattern manaslu already uses |
+| **Primary AI (F4a)** | Claude Sonnet 5 (Anthropic) | Best Nepali support; structured JSON; consistent with manaslu's model choice |
 | **Fallback AI** | Claude Haiku 4.5 | Cheaper; good for simple explanations |
-| **Database** | Supabase PostgreSQL + pgvector | Auth + data + vector search in one |
-| **Auth** | Supabase Auth (email + Google OAuth) | Free; JWT; RLS integration |
-| **Storage** | Supabase Storage (user-scoped buckets) | Document uploads; RLS policies |
-| **Scheduling** | pg_cron (PostgreSQL) | Visa reminders; knowledge refresh |
-| **Push Notifications** | Web Push API | Free; no third-party service needed |
-| **Hosting** | Vercel (frontend) + Railway (FastAPI) | Free tiers cover POC |
-| **Monitoring** | Sentry (free tier) | Error tracking for both frontend + API |
-| **CI/CD** | GitHub Actions | Deploy on push to main |
+| **Embeddings** | Voyage AI `voyage-multilingual-2` | Meaningfully better Nepali/Devanagari retrieval than OpenAI's embeddings — see ADR-007 |
+| **Database** | Cloud SQL for PostgreSQL + pgvector | Same engine/pattern as manaslu (`08-data-layer.md`); AU region |
+| **Auth** | GCP Identity Platform | The same token manaslu verifies as a resource server — no cross-cloud auth bridge |
+| **Storage** | GCS (user-scoped, AU region) | F1-F3 assets; manaslu owns its own buckets for documents/PDFs |
+| **Scheduling** | Cloud Scheduler + Cloud Run jobs | Visa reminders; knowledge refresh |
+| **Push Notifications** | Firebase Cloud Messaging (FCM) | One SDK across web + any future native wrapper — see ADR-005 |
+| **CI/CD** | GitHub Actions + Workload Identity Federation | Identical pattern to manaslu's (`09-infra-cicd.md`) and `karki-labs-infra` |
+| **IaC** | Terraform in `karki-labs-infra` | Same repo already provisioning manaslu's infra |
+| **Monitoring** | Cloud Logging + Cloud Monitoring + Error Reporting | Matches manaslu; one observability stack, not two |
 
 ### POC Cost Estimate
 
-| Service | Plan | Monthly Cost |
+Cloud Run scales to zero at low volume, similar to the earlier Vercel/Railway free-tier assumption — flagging as **estimate, not verified GCP pricing**, re-run once Phase 0 is live:
+
+| Service | Plan | Monthly Cost (est.) |
 |---------|------|-------------|
-| Supabase | Free (2 projects, 500MB DB) | $0 |
-| Vercel | Hobby (100GB bandwidth) | $0 |
-| Railway | Starter ($5 credit) | $0 |
-| Claude API | ~5K calls/month × $0.003/1K tokens | ~$5 |
-| OpenAI Embeddings | ~10K tokens/month | ~$0.01 |
-| Sentry | Free (5K events) | $0 |
-| **TOTAL POC** | | **~$5/month** |
+| Cloud Run (web + API, min instances 0) | Pay-per-use, dev traffic | ~$0-5 |
+| Cloud SQL (smallest always-on instance, AU region) | See BUILD-SCHEDULE.md cost section | ~$25-70 |
+| Claude API | ~5K calls/month | ~$5 |
+| Voyage AI embeddings | ~10K tokens/month | <$1 |
+| GCS | Minimal at POC scale | <$1 |
+| **TOTAL POC** | | **~$30-80/month** |
+
+(Higher than the earlier Supabase/Vercel-based ~$5/mo estimate — Cloud SQL has no free tier and its always-on cost dominates. Manaslu's infra already accepts this tradeoff for one coherent stack. Cost lever: **share one Cloud SQL instance with manaslu** (separate databases, one instance) at POC scale, halving the fixed cost — decide in Phase 0. Full breakdown + verification flag: `docs/BUILD-SCHEDULE.md` cost section.)
 
 ### Environments
 ```
-local    → supabase start + `npm run dev` + `uvicorn api.app:app`
-staging  → Supabase staging project + Vercel preview deploys
-production → Supabase Pro + Vercel production + Railway
+local      → docker-compose (Cloud SQL Auth Proxy) + `npm run dev` + `uvicorn api.app:app`
+             manaslu run separately per its own local setup
+dev        → GCP dev project (Terraform in karki-labs-infra) + Cloud Run dev revisions
+production → GCP prod project + Cloud Run prod revisions
 ```
 
 ---
@@ -927,106 +845,80 @@ production → Supabase Pro + Vercel production + Railway
 ```
 Layer              Control
 ─────────────────────────────────────────────────────────
-Transport          HTTPS everywhere (Vercel + Railway + Supabase)
-Authentication     Supabase Auth JWT (RS256), 1hr access + refresh token
-Authorization      Row Level Security on ALL PostgreSQL tables
-API Keys           ONLY in server-side env vars (Edge Function secrets + FastAPI .env)
-                   NEVER in client bundle
-Document Storage   Supabase Storage with user-scoped signed URLs
-Token Storage      httpOnly cookies (PWA) or expo-secure-store (if native wrapper)
-AI Requests        No PII in logs; Claude API data retention reviewed
+Transport          HTTPS everywhere (Cloud Run, GCS, Cloud SQL private IP)
+Authentication     GCP Identity Platform JWT — same token manaslu verifies (no bridging)
+Authorization      Row-owned Postgres tables (uid scoping) on ALL Cloud SQL tables
+API Keys           Secret Manager only — never in client bundle or env-baked images
+Document Storage   Not stored by saathi for F4b — that's manaslu's GCS buckets (AU region)
+Token Storage      httpOnly cookies (PWA)
+AI Requests        No PII in F4a logs (F4a never touches documents — that's F4b/manaslu)
 Data Deletion      CASCADE on user delete; user-requested deletion < 30 days
-Logging            No PII in Sentry; user_id only for debugging
-PII Handling       Passport numbers, DOBs encrypted at rest in Supabase
+Logging            No PII in Cloud Logging; uid hashed for traceability (matches manaslu's pattern)
+PII Handling       Saathi's own DB has no passport/financial data — F1-F3 don't collect it;
+                   all sensitive-document handling is manaslu's, governed by its own
+                   `10-security-privacy.md` (AU residency, consent gate, audit trail)
 ```
 
 ---
 
 ## 14. Architecture Decision Records
 
-### ADR-001: Hybrid Backend (Edge Functions + FastAPI)
+### ADR-001: F1-F3 as a lightweight Cloud Run API; F4b delegated to manaslu (supersedes the Aug 8 "Edge Functions + FastAPI hybrid" draft)
 **Status:** Accepted
-**Decision:** Use Supabase Edge Functions for simple CRUD (F1, F2, F3) and FastAPI for AI-heavy pipelines (F4).
-**Rationale:** Edge Functions are fast, collocated with DB, and sufficient for CRUD. FastAPI handles streaming, complex Python ML/AI libraries, and longer execution times needed for RAG + document extraction pipelines.
+**Decision:** One FastAPI service on Cloud Run handles F1/F2/F3 CRUD + F4a RAG. F4b (scan/extract/fill) is not built in this repo at all — saathi consumes manaslu's API.
+**Rationale:** The original hybrid-backend split (Supabase Edge Functions for CRUD, separate FastAPI for AI) solved a problem that goes away once F4b moves to manaslu — there's no longer a "heavy AI pipeline" inside this repo big enough to justify a second runtime. One Cloud Run FastAPI service is simpler and matches manaslu's own deploy pattern.
 
 ### ADR-002: Rules Engine for Points Calculator (Not LLM)
-**Status:** Accepted
+**Status:** Accepted — unchanged
 **Decision:** F2 Points Calculator is a deterministic JSON rules engine, not an LLM.
-**Rationale:** Points calculation is high-stakes, must be correct every time, and the rules don't change frequently. An LLM could hallucinate. A JSON config file + test suite guarantees correctness.
+**Rationale:** Points calculation is high-stakes, must be correct every time. A JSON config + test suite guarantees correctness; an LLM could hallucinate.
 
 ### ADR-003: Decision Tree for Checklist (Not LLM)
-**Status:** Accepted
+**Status:** Accepted — unchanged
 **Decision:** F3 Document Checklist uses branching decision trees stored as JSON, not an LLM.
-**Rationale:** Checklist generation is deterministic — the same visa type + answers always produces the same checklist. LLM adds cost, latency, and hallucination risk with no benefit for POC. LLM enhancement (e.g., unusual document handling) can be added in Phase 2.
+**Rationale:** Checklist generation is deterministic — same visa type + answers always produces the same checklist.
 
-### ADR-004: pgvector for RAG (Not Pinecone)
+### ADR-004: pgvector for RAG (Not Pinecone), scoped to saathi's own knowledge base
 **Status:** Accepted
-**Decision:** Use pgvector extension in Supabase for vector storage and similarity search.
-**Rationale:** Already using Supabase — adding pgvector is free with zero additional infrastructure. Pinecone would add cost ($70+/mo) and complexity. The knowledge base is small enough (< 10K chunks) that pgvector's IVFFlat index is more than sufficient.
+**Decision:** Use pgvector on saathi's own Cloud SQL instance for F4a/F3 knowledge retrieval.
+**Rationale:** Same reasoning as manaslu's own ADR (`06-service-api.md` doesn't need vectors; this is saathi-only): free with the DB already running, sufficient at <10K chunks. Not shared with manaslu's database — separate concern, separate schema.
 
-### ADR-005: Web Push API (Not OneSignal/Firebase)
-**Status:** Accepted
-**Decision:** Use native Web Push API for visa expiry reminders.
-**Rationale:** PWA supports Web Push natively. No third-party service, no cost, no vendor lock-in. Sufficient for POC's simple reminder needs (1-2 notifications per user per month).
+### ADR-005: Firebase Cloud Messaging (Not Web Push API alone, not OneSignal)
+**Status:** Accepted — resolves a prior undocumented contradiction (the Aug 8 draft picked Web Push API in one place and a tech-research doc recommended OneSignal elsewhere, with no ADR reconciling them)
+**Decision:** Use FCM for visa expiry reminders.
+**Rationale:** Native to the GCP/Identity Platform stack already in use; works for web push today and any native wrapper later without a second SDK; no third-party vendor (OneSignal) needed, unlike raw Web Push API alone FCM still handles the iOS Safari web-push limitations more gracefully via its abstraction, though the underlying platform constraint (§16) doesn't disappear.
 
-### ADR-006: Claude Sonnet as Primary AI
+### ADR-006: Claude Sonnet as Primary AI for F4a
 **Status:** Accepted
-**Decision:** Claude Sonnet 4.5 as the primary AI model for F4 (Form Helper + Scan Pipeline).
-**Rationale:** Best Nepali (Devanagari) support of any commercial model. Native vision capabilities for document scanning. Structured JSON output mode. Claude Haiku 4.5 as cost-saving fallback for simpler explanations.
+**Decision:** Claude Sonnet 5 for F4a field explanations; Haiku 4.5 fallback for simple cases.
+**Rationale:** Best Nepali (Devanagari) support of any commercial model; consistent with manaslu's own model choice for its Sonnet-tier extraction work (`05-llm-strategy.md`) — one vendor across both repos.
+
+### ADR-007: Voyage AI embeddings, not OpenAI (fixes a prior silent contradiction)
+**Status:** Accepted
+**Decision:** `voyage-multilingual-2` for the F4a/F3 knowledge base, not OpenAI's `text-embedding-3`.
+**Rationale:** The Aug 8 draft's cost table listed OpenAI embeddings despite an earlier tech-research pass explicitly recommending Voyage AI *because* OpenAI's embeddings measurably degrade on Nepali — the exact quality problem this RAG system exists to avoid. No ADR previously documented why the switch happened; there's no good reason for it, so this reverts to Voyage.
+
+### ADR-008: F4b is manaslu's responsibility, not rebuilt here
+**Status:** Accepted
+**Decision:** Saathi does not implement document classification, extraction, validation, transliteration, or AcroForm filling. It integrates with manaslu's REST+SSE API.
+**Rationale:** manaslu already exists, is GCP-native, and was purpose-built around the vault/bilingual-explain moat identified in the July 13 competitive re-assessment (`research/dispora-nepal/competitive-analysis.md`). Rebuilding this from scratch (the Aug 8 draft's original Phase 4 plan, ~4 weeks of work) would duplicate solved, harder engineering for no benefit and risk diverging from the vault-first design that's the actual differentiator. See §1 and `docs/architecture/f4-manaslu-integration.md`.
 
 ---
 
 ## 15. Build Schedule
 
-### Phase 0 — Foundation (Weeks 1–2)
-| Week | Tasks | Deliverable |
-|------|-------|-------------|
-| W1 | Repo setup (monorepo), Supabase project, Next.js + shadcn/ui skeleton, i18n setup with EN/NP, design system tokens | Blank app with bilingual shell, auth working |
-| W2 | Supabase schema (users, visas, knowledge_base), Edge Function template, FastAPI skeleton, CI/CD pipeline | Database + APIs running locally |
+Full detail: [`docs/BUILD-SCHEDULE.md`](docs/BUILD-SCHEDULE.md). Summary:
 
-**Exit criteria:** Full dev environment boots with one command. Auth working. Schema deployed.
+| Phase | Weeks | What | Notes |
+|-------|-------|------|-------|
+| 0 | 1-2 | GCP foundation: Cloud Run, Cloud SQL, Identity Platform, CI/CD (Terraform in karki-labs-infra) | Matches manaslu's own infra pattern |
+| 1 | 2-3 | F3 Document Checklist | No LLM; content + branching logic |
+| 2 | 3-4 | F2 Points Calculator | Deterministic; test suite |
+| 3 | 4-6 | F1 Visa Tracker | CRUD + FCM reminders + offline cache |
+| 4 | 6-9 | F4 Form Helper | F4a: own RAG build. F4b: manaslu API integration (materially smaller than a from-scratch build — see ADR-008) |
+| 5 | 9-11 | Polish & launch | Accessibility, legal sign-off (see §16), beta testing |
 
-### Phase 1 — F3 Document Checklist (Weeks 2–3)
-| Week | Tasks | Deliverable |
-|------|-------|-------------|
-| W2-3 | Build visa-type selection UI, branching questionnaire component, decision tree engine, checklist renderer with collapsible items, print/export | Working F3 for all 6 visa types |
-| W3 | Populate knowledge base with all checklist items (EN+NP), test with all branching paths | Complete, verified checklist content |
-
-**Exit criteria:** User can select any supported visa type, answer questions, and generate + print a correct checklist with Nepali explanations.
-
-### Phase 2 — F2 Points Calculator (Weeks 3–4)
-| Week | Tasks | Deliverable |
-|------|-------|-------------|
-| W3 | Build step-by-step wizard component, JSON rules engine, points calculation logic | Calculator engine working |
-| W4 | Results screen with breakdown, SkillSelect comparison, save/share, disclaimer integration | Complete F2 with test suite (10 profiles verified) |
-
-**Exit criteria:** Calculator produces correct score for all 10 test profiles. Passes CI with 100% accuracy.
-
-### Phase 3 — F1 Visa Tracker (Weeks 4–6)
-| Week | Tasks | Deliverable |
-|------|-------|-------------|
-| W4-5 | Visa CRUD UI (add/edit/delete), dashboard with countdown timer, condition cards, next-steps display | Working F1 UI |
-| W5 | pg_cron reminder job, Web Push API integration, offline caching via Service Worker | Reminders firing, offline support |
-| W6 | Multi-visa support, notification preferences | Complete F1 |
-
-**Exit criteria:** User can track multiple visas, receive reminders at 180/90/30/7 days, view tracker offline.
-
-### Phase 4 — F4 Form Helper + Scan Pipeline (Weeks 6–10)
-| Week | Tasks | Deliverable |
-|------|-------|-------------|
-| W6-7 | RAG pipeline: knowledge ingestion scraper, pgvector setup, embedding generation, retrieval endpoint | RAG answering form field questions |
-| W7-8 | Form Helper UI: form selection, field list, bilingual explanation display with citations | Working F4a (Form Explainer) |
-| W8-9 | Scan pipeline: upload API, classification, schema extraction, open extraction, confidence tiering | Document extraction working |
-| W9-10 | Review UI (side-by-side extraction + source), PDF fill (AcroForm via pdf-lib), audit log, export | Complete F4 with end-to-end scan → fill |
-
-**Exit criteria:** User can get a correct Nepali explanation for any supported form field. User can upload passport + payslips → review extractions → download filled Form 80.
-
-### Phase 5 — Polish (Weeks 10–12)
-| Week | Tasks | Deliverable |
-|------|-------|-------------|
-| W10 | Accessibility audit (WCAG 2.1 AA), performance optimization, PWA installability | Lighthouse score ≥ 90 |
-| W11 | Legal review (confirm Form Helper doesn't constitute immigration assistance), privacy policy, T&Cs | Legal sign-off |
-| W12 | Beta testing with 10-20 Nepalese migrants, feedback collection, bug fixes | Beta-ready product |
+**Dependency note:** manaslu ships on its own M0-M4 timeline in its own repo (`manaslu/docs/architecture/11-mvp-build-plan.md`). Phase 4's F4b integration work can only complete once manaslu's API is live (its M3) — but Phases 0-3 have zero dependency on manaslu and can proceed in parallel.
 
 ---
 
@@ -1034,16 +926,18 @@ PII Handling       Passport numbers, DOBs encrypted at rest in Supabase
 
 | # | Question / Risk | Impact | Status | Resolution By |
 |---|----------------|--------|--------|---------------|
-| 1 | AcroForm field names for Form 80 — need to verify actual field names by inspecting PDF | High — blocks F4 PDF fill | 🔴 Open | Before W8 |
-| 2 | Claude data retention for migration documents — confirm with Anthropic | Medium — privacy compliance | 🔴 Open | Before launch |
-| 3 | SkillSelect invitation round data freshness — manual update process | Low — affects F2 comparison accuracy | 🟡 Monitor | Monthly review |
-| 4 | Home Affairs website structure changes — may break knowledge scraper | Medium — affects F4 accuracy | 🟡 Monitor | Weekly change detection |
-| 5 | Nepali-script field values in PDFs — AcroForm may not support Unicode | Medium — affects F4 fill | 🔴 Open | Test during W9 |
-| 6 | Web Push API support on iOS — historically limited | Low — affects F1 reminders | 🟡 Monitor | Test during W5 |
-| 7 | Cost scaling: Claude API if product goes viral in Nepalese Facebook groups | Medium — cost spike | 🟡 Monitor | Set cost alerts at $50/mo |
-| 8 | Legal: does auto-fill constitute "preparing a form"? (see legal-memo.md) | High — regulatory risk | 🟡 Mitigated | Answer sheet fallback available |
+| 1 | Form 80/1221 AcroForm field names (D3) | High — blocks F4b fill | 🔴 Open — **this is manaslu's blocker, not saathi's**; tracked there | manaslu's M2 |
+| 2 | Claude data retention for migration documents (D5) | Medium — privacy compliance | 🔴 Open — manaslu's concern (F4b handles the documents); saathi's F4a sends no PII to Claude | Before manaslu's public launch |
+| 3 | SkillSelect invitation round data freshness | Low — affects F2 comparison accuracy | 🟡 Monitor | Monthly review |
+| 4 | Home Affairs website structure changes — may break knowledge scraper | Medium — affects F4a accuracy | 🟡 Monitor | Weekly change detection |
+| 5 | FCM/Web Push support on iOS Safari — historically limited even via FCM's abstraction | Low — affects F1 reminders | 🟡 Monitor | Test during Phase 3 |
+| 6 | Cost scaling: Claude + Cloud SQL always-on cost if traction hits | Medium — cost spike | 🟡 Monitor | Set cost alerts at $50/mo |
+| 7 | **Legal: MARN-registered migration agent's written opinion on F4b autofill — not yet obtained** (legal-memo.md Condition 4) | **High — regulatory risk, gates public launch** | 🔴 **Open, not mitigated** — the fallback-answer-sheet is a contingency plan, not a substitute for the opinion itself | Before any public launch of F4b |
+| 8 | manaslu integration readiness — saathi's F4b UI can't be finished until manaslu's API contract is stable (currently at its doc-only stage, no code yet either) | Medium — schedule risk for Phase 4 | 🟡 Monitor | Track against manaslu's own M-milestones |
+| 9 | GCP POC cost estimate (§12) is not yet verified against real GCP pricing | Low | 🟡 Open | Re-run after Phase 0 |
+| 10 | F5 curation ops: news summaries + event vetting (MARN checks) are recurring human work with no owner yet; copyright posture (aggregation-only) needs a once-over in the legal review | Medium — gates F5 launch, not core product | 🟡 Open | Before Phase 6 (F5 build) |
+| 11 | F6 privacy: sharing user PII with third-party agents is an APP 6 disclosure — needs the itemised-consent framework, agent-side data-handling terms (delete-on-revoke), and privacy-policy coverage reviewed by the P5-7 lawyer; referral-fee arrangement needs its own disclosure check | Medium — gates F6 launch, not core product | 🟡 Open | Before Phase 7 (F6 build) |
 
 ---
 
-*Architecture compiled: August 8, 2026*
-*Next: See docs/architecture/ for per-feature detailed specs*
+*Architecture compiled: August 8, 2026 · Unified with manaslu: August 8, 2026*

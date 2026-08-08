@@ -1,3 +1,5 @@
+> **Archived.** Superseded by [`docs/research/market-and-competitive-analysis.md`](../market-and-competitive-analysis.md), which consolidates this document with `deep-market-analysis.md` and `research/dispora-nepal/competitive-analysis.md` under the corrected wedge/vault positioning. Kept here for historical reference only — the competitor set below is outdated.
+
 # Saathi — Market Research Document
 
 **Project:** AI Settlement & Immigration Companion for the Nepalese Diaspora in Australia
