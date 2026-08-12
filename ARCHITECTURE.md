@@ -57,8 +57,8 @@ saathi (this repo)                          manaslu (separate repo)
 Next.js PWA (all 4 features' UI)            Headless FastAPI agent service
 F1 Tracker, F2 Calculator,     ◄── owns ──  F4b: classify/extract/validate/
 F3 Checklist — full stack                   transliterate/map/fill + vault
-F4a Form Explainer (RAG,                    (profile_facts table, Claude
- own knowledge-service)                      tool-use loop, audit log)
+F4a Form Explainer (RAG,                    (profile_facts table, gap-
+ own knowledge-service)                      resolution engine, audit log)
 F4b UI: renders manaslu's                   Consumers forward the
  session/review/confirm events    ──API──►  end-user JWT; manaslu verifies
  (side-by-side value↔source-crop,           it, never issues its own
@@ -243,7 +243,7 @@ saathi/                              # This repo — frontend + F1/F2/F3 + F4 in
                                               │ end-user JWT forwarded
                          ┌───────────────────▼─────────────────┐
                          │     MANASLU (separate repo)          │
-                         │  Claude tool-use loop (Cloud Run)    │
+                         │  Gap-resolution engine (Cloud Run)   │
                          │  scan → extract → validate →         │
                          │  transliterate → map → fill          │
                          │  profile_facts vault · audit log     │
@@ -296,7 +296,7 @@ saathi/                              # This repo — frontend + F1/F2/F3 + F4 in
                     │  /explain    F4a RAG │   │    │  /v1/.../documents   │
                     │                      │   │    │  /v1/.../confirmations│
                     └──────────┬───────────┘   │    │                      │
-                               │               │    │  Claude tool-use loop │
+                               │               │    │  Gap-resolution engine│
                     ┌──────────▼──────────┐    │    │  scan/extract/fill/  │
                     │  CLOUD SQL           │    │    │  transliterate tools │
                     │  (saathi's own DB)    │    │    └──────────┬───────────┘
@@ -692,7 +692,7 @@ Saathi does **not** implement classify/extract/validate/transliterate/fill. It c
 │     └────────────────────┴──────────────────────────────────────┘   │
 │                                                                      │
 │  4. User confirms/corrects → saathi BFF: POST .../confirmations      │
-│     (resumes manaslu's paused agent loop)                            │
+│     (resumes manaslu's paused gap-resolution session)                            │
 │                                                                      │
 │  5. GET .../artifacts/{id} → signed URL to filled PDF + audit annex  │
 └─────────────────────────────────────────────────────────────────────┘

@@ -1,5 +1,8 @@
 # Saathi — GKE Infrastructure Architecture
 
+> **ARCHIVED:** superseded by the Cloud Run recommendation in
+> `../infrastructure-comparison.md` (§5). Kept for reference only.
+
 **Version:** 1.0 | **Date:** August 2026 | **Cloud:** GCP | **Orchestration:** GKE (Kubernetes)
 
 ---

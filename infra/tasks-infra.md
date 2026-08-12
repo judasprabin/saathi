@@ -1,6 +1,12 @@
 # Infrastructure Repo — Prioritized Task List
 
-**Repo:** `karki-labs-infra` | **Tool:** Terraform (GCP provider) | **CI:** Cloud Build / Terraform Cloud
+**Repo:** `karki-labs-infra` | **Tool:** Terraform (GCP provider) | **CI:** GitHub Actions (WIF, keyless)
+
+> **Compute platform: Cloud Run, not GKE.** `infrastructure-comparison.md` did the
+> full comparison and recommends Cloud Run — matching manaslu's own doc 09 (which
+> already rejected GKE) and saving ~$145/mo at beta scale. See `README.md` for the
+> resource summary and `infrastructure-comparison.md` §3/§5 for the full Cloud Run
+> resource inventory and deployment matrix this task list builds toward.
 
 ---
 
@@ -9,9 +15,9 @@
 | # | Task | Est. | Depends |
 |---|------|------|---------|
 | I0.1 | GCP project creation: `saathi-prod`, `saathi-staging`, `saathi-dev` | 0.5d | — |
-| I0.2 | Enable APIs: GKE, Cloud SQL, GCS, Identity Platform, Secret Manager, Artifact Registry, Cloud DNS, Cloud Build, Cloud Monitoring | 0.5d | I0.1 |
-| I0.3 | Service account creation: sa-api, sa-knowledge, manaslu-agent with minimum IAM roles | 0.5d | I0.2 |
-| I0.4 | Workload Identity setup: link GCP SAs to GKE K8s SAs | 0.5d | I0.3 |
+| I0.2 | Enable APIs: Cloud Run, Cloud SQL, GCS, Identity Platform, Secret Manager, Artifact Registry, Cloud DNS, Cloud Scheduler, Cloud Monitoring | 0.5d | I0.1 |
+| I0.3 | Service account creation: one per Cloud Run service (saathi-web, saathi-api, manaslu-agent, saathi-knowledge), minimum IAM roles each | 0.5d | I0.2 |
+| I0.4 | GitHub Actions Workload Identity Federation: keyless GCP auth from GitHub Actions (no service account keys) | 0.5d | I0.3 |
 | I0.5 | Terraform state: GCS backend bucket + state locking (no local state) | 0.5d | I0.1 |
 | I0.6 | Terraform workspace structure: dev/staging/prod workspaces with variable files | 0.5d | I0.5 |
 
@@ -21,27 +27,26 @@
 
 | # | Task | Est. | Depends |
 |---|------|------|---------|
-| I1.1 | VPC + subnet: `saathi-vpc`, australia-southeast1 subnet (10.0.0.0/20), secondary ranges for pods/services | 1d | I0.4 |
-| I1.2 | Cloud NAT + Private Google Access: outbound internet for pods | 0.5d | I1.1 |
+| I1.1 | VPC + subnet: `saathi-vpc`, australia-southeast1 subnet (10.0.0.0/20) | 1d | I0.4 |
+| I1.2 | Serverless VPC Connector: Cloud Run → Cloud SQL private IP (Cloud Run has direct internet egress — no Cloud NAT needed) | 0.5d | I1.1 |
 | I1.3 | Cloud SQL: PostgreSQL 16 instance, private IP, 1vCPU/3.75GB, pgvector extension | 1d | I1.1 |
 | I1.4 | Cloud SQL databases: `saathi` + `manaslu` databases, users, schema grants | 0.5d | I1.3 |
-| I1.5 | GCS bucket: `saathi-user-documents`, AU region, lifecycle policy (12mo auto-delete), uniform ACL | 0.5d | I0.4 |
+| I1.5 | GCS bucket: `saathi-user-documents`, AU region, lifecycle policy (12mo auto-delete), uniform ACL | 0.5d | I0.3 |
 | I1.6 | Secret Manager: anthropic-api-key, voyage-api-key, notion-token, db-password | 0.5d | I0.3 |
 | I1.7 | Artifact Registry: `saathi-docker` repository, AU region | 0.5d | I0.2 |
 
 ---
 
-## Phase 2 — GKE Cluster (Week 2) | Priority: P0
+## Phase 2 — Cloud Run Services (Week 2) | Priority: P0
 
 | # | Task | Est. | Depends |
 |---|------|------|---------|
-| I2.1 | GKE Autopilot cluster: australia-southeast1, Regular release channel, VPC-native, Workload Identity | 1d | I1.1 |
-| I2.2 | Namespaces: `saathi`, `manaslu`, `monitoring` | 0.5d | I2.1 |
-| I2.3 | GKE Gateway: single ingress controller, HTTPRoute for saathi.app + api.saathi.app | 1d | I2.1 |
-| I2.4 | External Secrets Operator: install via Helm, ClusterSecretStore pointing to GCP Secret Manager | 0.5d | I2.1 |
-| I2.5 | Workload Identity bindings: K8s SAs → GCP SAs with IAM roles | 0.5d | I0.4 |
-| I2.6 | NetworkPolicy: manaslu namespace only accepts from saathi namespace | 0.5d | I2.2 |
-| I2.7 | Cloud Monitoring: GKE dashboard, log-based metrics, uptime checks | 0.5d | I2.1 |
+| I2.1 | Cloud Run services: saathi-web, saathi-api (public), manaslu-agent (IAM-only invoker, not publicly invokable) | 1d | I1.1, I1.2 |
+| I2.2 | Cloud Run Job: saathi-knowledge (Notion → chunk → embed → pgvector), triggered by Cloud Scheduler | 0.5d | I1.4 |
+| I2.3 | Domain mapping: `saathi.app` → saathi-web, `api.saathi.app` → saathi-api (Cloud Run automatic HTTPS) | 0.5d | I2.1 |
+| I2.4 | Secret Manager → Cloud Run: mount secrets as env vars/volumes directly (native Cloud Run integration, no operator needed) | 0.5d | I1.6, I2.1 |
+| I2.5 | IAM invoker bindings: saathi-api service account granted `roles/run.invoker` on manaslu-agent only; manaslu-agent trust boundary is IAM, not a network policy | 0.5d | I0.3, I2.1 |
+| I2.6 | Cloud Monitoring: Cloud Run dashboard (request latency, error rate, instance count), log-based metrics, uptime checks | 0.5d | I2.1 |
 
 ---
 
@@ -49,14 +54,14 @@
 
 | # | Task | Est. | Depends |
 |---|------|------|---------|
-| I3.1 | Cloud DNS: `saathi-zone` with A records for saathi.app, api.saathi.app pointing to GKE Gateway IP | 0.5d | I2.3 |
-| I3.2 | Managed certificates: Google-managed SSL for saathi.app, api.saathi.app (auto-renew) | 0.5d | I3.1 |
+| I3.1 | Cloud DNS: `saathi-zone` with records for saathi.app, api.saathi.app pointing to Cloud Run domain mapping | 0.5d | I2.3 |
+| I3.2 | Managed certificates: automatic via Cloud Run domain mapping (no separate cert management) | — | I3.1 |
 | I3.3 | Domain registration: saathi.app → point NS to Cloud DNS | 0.5d | I3.1 |
-| I3.4 | Cloud Build trigger: connect GitHub repos (saathi, manaslu) → Cloud Build | 1d | I2.1 |
-| I3.5 | CI/CD service account: Cloud Build → GKE deploy + Artifact Registry push permissions | 0.5d | I3.4 |
+| I3.4 | GitHub Actions workflow: connect GitHub repos (saathi, manaslu) → build → push Artifact Registry → `gcloud run deploy` | 1d | I0.4, I2.1 |
+| I3.5 | CI service account permissions: WIF-bound identity → Artifact Registry push + Cloud Run deploy roles | 0.5d | I3.4 |
 | I3.6 | Identity Platform: email/password + Google OAuth providers, JWT config, web client ID | 1d | I0.2 |
 | I3.7 | Firebase Cloud Messaging: project setup, server key → Secret Manager | 0.5d | I3.6 |
-| I3.8 | End-to-end test: deploy dummy pod → verify it can reach Cloud SQL, GCS, Secret Manager | 1d | I2.5 |
+| I3.8 | End-to-end test: deploy a dummy Cloud Run revision → verify it can reach Cloud SQL, GCS, Secret Manager | 1d | I2.4 |
 
 ---
 
@@ -68,8 +73,8 @@
 | I4.2 | Terraform docs: `terraform-docs` auto-generated README per module | 0.5d | All |
 | I4.3 | Variable files: per-environment (dev.tfvars, staging.tfvars, prod.tfvars) with descriptions | 0.5d | All |
 | I4.4 | State locking test: verify only one terraform apply can run at a time | 0.5d | I0.5 |
-| I4.5 | Disaster recovery plan: Cloud SQL backup restore, GKE cluster rebuild, DNS failover | 1d | All |
-| I4.6 | Cost budget: GCP billing budget + alert at 50%/80%/100% of $500/month | 0.5d | I0.1 |
+| I4.5 | Disaster recovery plan: Cloud SQL backup restore, Cloud Run redeploy from Artifact Registry image, DNS failover | 1d | All |
+| I4.6 | Cost budget: GCP billing budget + alert at 50%/80%/100% of ~$150/month (Cloud Run beta-prod estimate — see README.md) | 0.5d | I0.1 |
 
 ---
 
@@ -78,15 +83,15 @@
 ```
 karki-labs-infra/
 ├── modules/
-│   ├── gke/              # GKE cluster + node pools + namespaces
+│   ├── cloud-run/        # Cloud Run services + Job + IAM invoker bindings
 │   ├── cloud-sql/        # PostgreSQL instance + databases + users
-│   ├── networking/       # VPC, subnets, NAT, firewall rules
+│   ├── networking/       # VPC, subnet, Serverless VPC Connector
 │   ├── storage/          # GCS buckets + lifecycle policies
-│   ├── auth/             # Identity Platform + Workload Identity
-│   ├── secrets/          # Secret Manager + External Secrets Operator
-│   ├── dns/              # Cloud DNS + managed certificates
+│   ├── auth/             # Identity Platform
+│   ├── secrets/          # Secret Manager
+│   ├── dns/              # Cloud DNS + domain mapping
 │   ├── monitoring/       # Cloud Monitoring dashboards + alerts + uptime
-│   └── cicd/             # Cloud Build triggers + Artifact Registry
+│   └── cicd/             # GitHub Actions WIF + Artifact Registry
 ├── environments/
 │   ├── dev/              # dev.tfvars + main.tf
 │   ├── staging/          # staging.tfvars + main.tf
@@ -101,7 +106,7 @@ karki-labs-infra/
 
 | Resource | dev | staging | prod |
 |----------|-----|---------|------|
-| GKE | Autopilot, min 1 pod each | Autopilot, min 2 pods | Autopilot, min 2 pods |
+| Cloud Run | All services min=0 (scale-to-zero) | All services min=0 | manaslu-agent min=1 (SSE latency); web/api min=0 |
 | Cloud SQL | 1 vCPU, 25 GB | 1 vCPU, 50 GB | 1 vCPU, 50 GB + backups |
 | GCS lifecycle | 30 days | 90 days | 12 months |
 | Domain | dev.saathi.app | staging.saathi.app | saathi.app |

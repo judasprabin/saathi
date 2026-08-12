@@ -1,7 +1,10 @@
 # Manaslu Repo — Prioritized Task List
 
-**Repo:** `judasprabin/manaslu` | **Stack:** FastAPI + Claude (tiered: Opus/Sonnet/Haiku) + GKE  
+**Repo:** `judasprabin/manaslu` | **Stack:** FastAPI + Claude (tiered: Opus/Sonnet/Haiku) + Cloud Run  
 **Scope:** Headless scan/extract/form-fill agent service. No UI. Saathi is the only consumer at MVP.
+
+> Infra decision: Cloud Run per doc 09 (GKE explicitly rejected there) — see
+> `../saathi/infra/infrastructure-comparison.md` §5 for the cross-repo comparison.
 
 ---
 
@@ -14,10 +17,10 @@
 | M0.3 | Claude client wrapper: Sonnet primary, Opus for hard cases, Haiku for classification | 1d | M0.1 |
 | M0.4 | GCS client: upload/download, signed URL generation, user-scoped bucket structure | 0.5d | M0.1 |
 | M0.5 | Identity Platform verification: validate forwarded JWT as resource server | 1d | M0.1 |
-| M0.6 | K8s manifests: Deployment, Service, NetworkPolicy (only accept from saathi namespace) | 0.5d | M0.1 |
-| M0.7 | Cloud Build pipeline + Artifact Registry push | 0.5d | M0.6 |
+| M0.6 | Cloud Run service config: `service.yaml`, ingress = internal (IAM-only invoker, not publicly invokable — trust boundary is IAM, not a K8s NetworkPolicy) | 0.5d | M0.1 |
+| M0.7 | GitHub Actions (WIF) pipeline + Artifact Registry push | 0.5d | M0.6 |
 
-**M0 exit:** Agent boots, accepts JWT, writes to DB, deploys to GKE from CI.
+**M0 exit:** Agent boots, accepts JWT, writes to DB, deploys to Cloud Run from CI.
 
 ---
 

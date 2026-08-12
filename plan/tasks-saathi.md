@@ -1,7 +1,11 @@
 # Saathi Repo — Prioritized Task List
 
-**Repo:** `judasprabin/saathi` | **Stack:** Next.js 14 + FastAPI + GKE  
+**Repo:** `judasprabin/saathi` | **Stack:** Next.js 14 + FastAPI + Cloud Run  
 **Scope:** Frontend (F1-F6 UI) + API (F1-F3 CRUD + F4a RAG + manaslu BFF)
+
+> Infra decision: Cloud Run, not GKE — see `../infra/infrastructure-comparison.md` §5.
+> CI/CD: GitHub Actions + Workload Identity Federation (matching manaslu doc 09 and
+> `karki-labs-infra`'s existing pattern), not Cloud Build.
 
 ---
 
@@ -9,20 +13,20 @@
 
 | # | Task | Est. | Depends |
 |---|------|------|---------|
-| 0.1 | Monorepo scaffold: `/web` (Next.js), `/api` (FastAPI), `/k8s` (manifests), `/db` (migrations) | 1d | — |
+| 0.1 | Monorepo scaffold: `/web` (Next.js), `/api` (FastAPI), `/deploy` (Cloud Run service configs), `/db` (migrations) | 1d | — |
 | 0.2 | Dockerfiles: web (multi-stage Next.js), api (Python slim), knowledge (batch job) | 0.5d | 0.1 |
 | 0.3 | Cloud SQL schema: users, visas, checklist_sessions, points_results, knowledge_base (pgvector), audit_log | 1d | 0.1 |
 | 0.4 | GCP Identity Platform setup: email/password + Google OAuth, Firebase Admin SDK for FastAPI | 1d | 0.3 |
-| 0.5 | K8s manifests: Deployments (web, api, knowledge), Services, ConfigMap, Gateway HTTPRoute | 1d | 0.2 |
-| 0.6 | Cloud Build pipeline: `cloudbuild.yaml` — build images → push Artifact Registry → deploy to GKE | 1d | 0.5 |
-| 0.7 | DB migrations tooling: Alembic + Cloud SQL Proxy sidecar in Cloud Build | 0.5d | 0.3 |
-| 0.8 | Secret Manager integration: External Secrets Operator → mount Anthropic, Voyage, DB keys | 0.5d | 0.5 |
+| 0.5 | Cloud Run service configs: `service.yaml` per service (web, api), Cloud Run Job config (knowledge), env/secret bindings, domain mapping for saathi.app/api.saathi.app | 1d | 0.2 |
+| 0.6 | GitHub Actions pipeline (WIF, keyless): build images → push Artifact Registry → `gcloud run deploy` | 1d | 0.5 |
+| 0.7 | DB migrations tooling: Alembic + Cloud SQL connector (via Serverless VPC Connector) in CI | 0.5d | 0.3 |
+| 0.8 | Secret Manager integration: mount Anthropic, Voyage, DB keys as Cloud Run secret env vars/volumes (native support — no operator needed) | 0.5d | 0.5 |
 | 0.9 | Shared UI: shadcn/ui setup, design tokens, Disclaimer component, SourceCitation, ConfidenceBadge | 1d | 0.1 |
 | 0.10 | Routing + navigation shell: sidebar, tab bar, page layout, auth guard | 1d | 0.9 |
-| 0.11 | FastAPI skeleton: health check, CORS, error middleware, Supabase-to-GCP migration layer | 1d | 0.1 |
+| 0.11 | FastAPI skeleton: health check, CORS, error middleware | 1d | 0.1 |
 | 0.12 | Observability: OpenTelemetry SDK for traces, structured JSON logging, Cloud Monitoring metrics | 0.5d | 0.11 |
 
-**Phase 0 exit:** `kubectl apply -f k8s/` boots everything. Auth working. `api.saathi.app/health` returns 200.
+**Phase 0 exit:** `gcloud run deploy` (via CI) boots everything. Auth working. `api.saathi.app/health` returns 200.
 
 ---
 

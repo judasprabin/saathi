@@ -5,14 +5,29 @@
 
 ---
 
+## Decision: Cloud Run, not GKE
+
+`infrastructure-comparison.md` did the full GKE-vs-Cloud-Run analysis and
+**recommends Cloud Run** — matching manaslu's own doc 09 (which already
+rejected GKE) and saving ~$145/mo at beta scale. This is the settled compute
+platform; everything below reflects it. `terraform-resource-map.md`
+(GKE-oriented) and `infrastructure.md` (original GKE-only plan) are both
+archived under `archive/` — kept only in case a future migration to GKE is
+ever triggered (see the comparison doc's §"Migration Path" for the actual
+triggers: >10K sustained MAU, NetworkPolicy needs, or a multi-cloud
+requirement — none apply yet).
+
 ## Files
 
 | Doc | Lines | What It Contains |
 |-----|-------|-----------------|
-| [terraform-resource-map.md](./terraform-resource-map.md) | 690 | **Complete GKE resource map** — every Terraform resource, settings, costs, and money-saving alternatives. Follow top-to-bottom to create all 30 GCP resources. |
-| [infrastructure-comparison.md](./infrastructure-comparison.md) | 316 | **GKE vs Cloud Run** side-by-side comparison — cost tables, feature matrix, scalability thresholds, recommendation |
-| [infrastructure.md](./infrastructure.md) | 307 | Original GKE-only infrastructure plan (superseded by the two above — kept for reference) |
-| [tasks-infra.md](./tasks-infra.md) | 108 | Prioritized Terraform/IaC implementation tasks (30+ tasks across 4 phases) |
+| [infrastructure-comparison.md](./infrastructure-comparison.md) | 316 | **GKE vs Cloud Run** side-by-side comparison — cost tables, feature matrix, scalability thresholds, and the Cloud Run resource inventory (§3) + deployment matrix (§5) to build from |
+| [tasks-infra.md](./tasks-infra.md) | Cloud Run-targeted | Prioritized Terraform/IaC implementation tasks |
+| [manaslu-form-filling-investigation.md](./manaslu-form-filling-investigation.md) | 668 | Extraction approach comparison — hybrid/tiered recommendation, now merged into manaslu docs 02/03 |
+| [manaslu-plan-audit.md](./manaslu-plan-audit.md) | 320 | Build-plan gap audit — mostly already incorporated into manaslu doc 11 |
+| [manaslu-production-audit.md](./manaslu-production-audit.md) | 400 | Production-readiness critique — mostly already incorporated into manaslu doc 11 |
+| [archive/terraform-resource-map.md](./archive/terraform-resource-map.md) | 690 | Superseded GKE resource map — reference only if migrating off Cloud Run later |
+| [archive/infrastructure.md](./archive/infrastructure.md) | 307 | Superseded original GKE-only plan |
 
 ---
 
@@ -22,39 +37,38 @@
 
 | Service | Repo | Runtime | Public? |
 |---------|------|---------|---------|
-| saathi-web | `judasprabin/saathi` | Next.js PWA | Yes |
-| saathi-api | `judasprabin/saathi` | FastAPI | Yes |
-| manaslu-agent | `judasprabin/manaslu` | FastAPI (gap-resolution engine) | IAM only |
-| saathi-knowledge | `judasprabin/saathi` | Python batch (Cloud Run Job / K8s CronJob) | IAM only |
+| saathi-web | `judasprabin/saathi` | Next.js PWA (Cloud Run) | Yes |
+| saathi-api | `judasprabin/saathi` | FastAPI (Cloud Run) | Yes |
+| manaslu-agent | `judasprabin/manaslu` | FastAPI gap-resolution engine (Cloud Run) | IAM only |
+| saathi-knowledge | `judasprabin/saathi` | Python batch (Cloud Run Job, via Cloud Scheduler) | IAM only |
 
-### Key GCP Resources
+### Key GCP Resources (Cloud Run — see infrastructure-comparison.md §3 for full detail)
 
 | Resource | Spec | Monthly Cost |
 |----------|------|-------------|
-| GKE Cluster | Zonal, australia-southeast1-a | $0/mo (zonal tier) |
-| Node Pool | 2× e2-standard-2, auto-scaling to 6 | ~$98/mo |
+| Cloud Run services (web, api, manaslu-agent) | Scale-to-zero except manaslu-agent (min 1 in prod, for SSE latency) | ~$39/mo |
+| Cloud Run Job (saathi-knowledge) | 1 CPU/2Gi, ~2h/day, triggered by Cloud Scheduler | ~$6/mo |
 | Cloud SQL | db-custom-1-3840, 50GB SSD, PITR | ~$55/mo |
-| Cloud NAT | 1 gateway, AUTO_ONLY IPs | ~$42/mo |
-| GCS | 3 buckets, ~10GB total | ~$2/mo |
-| Serverless VPC Connector | 1 connector (for Cloud SQL private IP) | ~$35/mo |
-| All other (DNS, Artifact Registry, Secrets, Monitoring) | — | ~$12/mo |
-| **Total** | | **~$275/mo** |
+| Serverless VPC Connector | 1 connector (Cloud Run → Cloud SQL private IP) — replaces Cloud NAT, which Cloud Run doesn't need | ~$35/mo |
+| GCS | 2 buckets, ~10GB total | ~$1.50/mo |
+| All other (DNS, Artifact Registry, Secrets, Monitoring, Build) | — | ~$12/mo |
+| **Total** | | **~$148/mo** |
 
 ### Cost Tiers
 
 | Tier | Monthly | Use Case |
 |------|---------|----------|
-| Dev Minimum | $65/mo | Preemptible nodes, db-f1-micro, no backups |
-| Staging | $160/mo | e2-medium nodes, db-g1-small, daily backups |
-| **Beta Prod** | **$275/mo** | **e2-standard-2 nodes, db-custom-1-3840, PITR** |
-| Prod HA | $400/mo | Regional GKE + Regional Cloud SQL |
+| Dev | ~$40/mo | All services min=0, Cloud SQL smallest tier |
+| **Beta Prod** | **~$148/mo** | manaslu-agent min=1 (SSE latency), others min=0 |
+| At scale (10K+ MAU) | Revisit — see comparison doc's Cloud Run→GKE migration triggers | |
 
 ### Terraform Execution (quick order)
 
 ```
-1. Project + APIs → 2. VPC + Subnet → 3. NAT + Firewall → 4. GKE Cluster →
-5. Node Pool → 6. Cloud SQL → 7. GCS → 8. IAM + WI → 9. Secrets →
-10. DNS + TLS → 11. Artifact Registry → 12. Auth → 13. Monitoring
+1. Project + APIs → 2. VPC + Subnet → 3. Serverless VPC Connector →
+4. Cloud SQL → 5. GCS → 6. IAM (per-service SAs) → 7. Secrets →
+8. Cloud Run services + Job → 9. Cloud Scheduler → 10. DNS + TLS →
+11. Artifact Registry → 12. Auth (Identity Platform) → 13. Monitoring
 ```
 
-Full dependency graph with all 30 resources: [terraform-resource-map.md §13](./terraform-resource-map.md#phase-13--terraform-execution-order)
+Full task breakdown: [tasks-infra.md](./tasks-infra.md).

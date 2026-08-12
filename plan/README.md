@@ -26,17 +26,19 @@ All content is powered by the **AU Visa Source Registry** — an autonomous craw
 
 ```
 ┌───────────────────────────────────────────────────────────┐
-│                     GCP Project: saathi-prod               │
+│              GCP Project: saathi-prod (australia-southeast1)│
 │                                                            │
-│  GKE Cluster (asia-southeast1 / australia-southeast1)      │
+│  Cloud Run services (scale-to-zero except manaslu-agent)   │
 │  ┌──────────────────────────────────────────────────┐     │
 │  │  saathi-web (Next.js PWA)    │  saathi-api (FastAPI) │  │
 │  │  F1 Tracker, F2 Calculator,  │  F1-F3 CRUD + F4a RAG│  │
 │  │  F3 Checklist, F4a UI,       │  + BFF for manaslu   │  │
 │  │  F4b Review UI               │                       │  │
 │  ├──────────────────────────────┼───────────────────────┤  │
-│  │  manaslu (FastAPI agent)     │  Cloud SQL (PostgreSQL│  │
-│  │  classify/extract/fill/vault │  + pgvector for RAG)  │  │
+│  │  manaslu-agent (Cloud Run,   │  Cloud SQL (PostgreSQL│  │
+│  │  IAM-only) — gap-resolution  │  + pgvector for RAG)  │  │
+│  │  engine: classify/extract/   │                       │  │
+│  │  fill/vault                  │                       │  │
 │  └──────────────────────────────────────────────────┘     │
 │                                                            │
 │  External tools: GCS (storage), Identity Platform (auth),  │
@@ -45,6 +47,7 @@ All content is powered by the **AU Visa Source Registry** — an autonomous craw
 
 Crawler: judasprabin/research → Notion → feeds Saathi knowledge base
 IaC:      karki-labs-infra → Terraform for GCP resources
+Infra decision record: saathi/infra/infrastructure-comparison.md (Cloud Run over GKE)
 ```
 
 ## Target Metrics
@@ -53,7 +56,6 @@ IaC:      karki-labs-infra → Terraform for GCP resources
 |--------|--------|
 | Beta users | 500 (TestFlight + Play Store) |
 | Week-4 retention | ≥ 25% |
-| Receipt scans/week | ≥ 2 per user |
 | Form completions | ≥ 1 per user/month |
 | Points calculations | ≥ 1 per user |
 | Checklist completions | ≥ 1 per user |
@@ -63,7 +65,7 @@ IaC:      karki-labs-infra → Terraform for GCP resources
 
 | Phase | Weeks | Deliverable |
 |-------|-------|-------------|
-| Phase 0 | 1-2 | GKE cluster, Cloud SQL, CI/CD, auth |
+| Phase 0 | 1-2 | Cloud Run services, Cloud SQL, CI/CD, auth |
 | Phase 1 | 2-4 | F3 Checklist (first shippable feature) |
 | Phase 2 | 4-6 | F2 Calculator + F1 Tracker |
 | Phase 3 | 6-10 | F4a Explainer (RAG) + F4b integration (manaslu) |

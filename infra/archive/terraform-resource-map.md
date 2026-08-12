@@ -1,5 +1,11 @@
 # Saathi — Terraform Infrastructure Resource Map (GKE Enterprise)
 
+> **ARCHIVED:** superseded by the Cloud Run recommendation in
+> `../infrastructure-comparison.md` (§5) — Cloud Run matches manaslu's own
+> doc 09 and saves ~$145/mo at beta scale. Kept for reference only in case a
+> future migration to GKE is triggered (see the comparison doc's migration
+> path: >10K sustained MAU, NetworkPolicy needs, or multi-cloud requirement).
+
 **Version:** 1.0 | **Target:** `karki-labs-infra` repo  
 **Region:** australia-southeast1 | **Tool:** Terraform (GCP provider)  
 **Approach:** GKE Standard (not Autopilot — for full control + cost visibility)
