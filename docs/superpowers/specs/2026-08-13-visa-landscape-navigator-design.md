@@ -1,7 +1,7 @@
 # Visa Landscape Navigator — Design Spec
 
-**Status:** Design approved (visual prototype signed off) — not yet built
-**Date:** 2026-08-13
+**Status:** Design approved, open technical questions resolved (§9) — ready for implementation planning
+**Date:** 2026-08-13, technical resolution 2026-08-14
 **Author:** Prabin Karki, via brainstorming session with Claude
 **Visual reference:** [`diagrams/saathi-landscape-navigator-mockup.html`](../../../diagrams/saathi-landscape-navigator-mockup.html) — the final approved interactive prototype. Open it in a browser; it's the primary spec artifact, this document explains the decisions behind it.
 
@@ -108,12 +108,31 @@ The approved prototype is genuinely interactive, not a static image of interacti
 - Full dedicated State Report and Visa Type Report pages beyond the "Your.../All..." summaries shown here (e.g., a complete single-visa deep dive analogous to what `reports-complete.html` explored mid-session)
 - Next-step CTAs bridging into F1 (track this pathway), F3 (start this checklist), F4 (form help), F6 (talk to a MARN agent) — identified as important (this feature is meant to be the app's spine tying those together) but not yet designed screen-by-screen
 
-## 9. Open technical questions
+## 9. Technical questions — resolved 2026-08-14
 
-- **Data model:** needs `occupations`, `visa_types`, `state_nomination_status`, `threshold_history` (by round, by visa type, by occupation where applicable), `ceiling_usage`, `processing_time_history` tables — schema not yet designed, should follow the crawler's existing data shape where possible rather than inventing a parallel one.
-- **Where this lives:** likely a saathi-side feature (not manaslu — manaslu stays scoped to scan+fill only). Should reuse the crawler pipeline output; exact ingestion path (direct DB read vs. an API layer) not yet decided.
-- **Palette technical debt:** the visual-polish pass used adjusted hex values (e.g. `#4a90e8`) that drifted from the project's dataviz-skill-validated palette (`#3987e5` etc., see `saathi/ARCHITECTURE.md`'s design-system references). **Must be re-run through the palette validator before this ships for real** — flagged during the session, not yet resolved.
-- **"What this means" insight generation:** needs a defined, deterministic template system (not hand-written per-occupation) so this scales past the 2 example occupations in the mockup to all 190+.
+### 9.1 The crawler gap (new finding, not anticipated when §9 was first written)
+
+Checked the AU Visa Source Registry crawler's actual current schema (`research/au-visa-sources/notion_registry.py`) rather than assuming. It tracks **pages**, not **facts**: title, URL, category, related-subclass tags, a free-text 2-3 sentence summary, and change status (new/updated/unchanged/dead). It detects that a SkillSelect results page changed; it does not extract "85 points" or "2,624 of 3,200" as a queryable number anywhere in its schema. The original §9 line ("should follow the crawler's existing data shape") undersold this — there is a missing extraction layer between what the crawler produces and what this feature needs, not just a schema-design task.
+
+**Resolution:** a new ingestion/extraction step, tiered the same way manaslu's document extraction already is (`manaslu/docs/architecture/02-scan-extraction.md`) — deterministic template/table parsers for the known, consistently-structured government page types (SkillSelect round tables, occupation ceiling pages, state nomination lists) as the primary tier; Claude-assisted extraction as fallback only for pages that don't fit a known template. This is the same "deterministic before LLM" tiering already validated twice elsewhere in this project family (manaslu's D-something hybrid extraction; the general ADR-002/003 principle) — not a new philosophy to invent.
+
+### 9.2 Data model
+
+Cloud SQL Postgres (Saathi's already-established DB), not a static committed build artifact like bato's `graph.json`. Deliberately not copying bato's pattern here: bato's graph is static published rules, appropriate for a build-time artifact; this feature's data is explicitly time-varying and updates daily, which calls for a live queryable database instead.
+
+Tables: `occupations`, `visa_subclasses`, `ceiling_usage` (occupation × program-year × issued/cap, time-series), `eoi_rounds` (visa × round-date × threshold, optionally occupation-scoped), `state_nomination_status` (state × occupation × status/fee/decision-time), `processing_times` (visa × as-of-date × median-days). Every row carries `source_url` + `retrieved_at`, matching the provenance discipline already required of manaslu's extraction records and bato's node/edge data.
+
+### 9.3 Where this lives
+
+Saathi's own backend — not manaslu (stays scan+fill only, not relitigated here), not a new repo. The extraction/ingestion job reuses the exact deployment shape already planned for F4a's knowledge-service ingestion (a Cloud Run Job), rather than inventing a new operational pattern.
+
+### 9.4 Palette
+
+Re-validated: the four categorical colors actually used in the final mockup (`#3987e5, #d95926, #199e70, #c98500`) are the real validated dark-mode values — the drift flagged earlier had already been self-corrected partway through the session without being noted. **However**, checking closely surfaced a separate, real issue: the mockup's `good`/`warning`/`critical` status roles were wired to categorical slot colors (slots 3/4/8) instead of the dedicated status palette (`#0ca30c`/`#fab219`/`#d03b3b`), which violates the rule that status colors must stay distinct from series-identity colors. **Fix before build:** keep the four categorical slots for series identity only (e.g. visa-type color-coding); switch status roles to the real status tokens.
+
+### 9.5 "What this means" insight generation
+
+Same problem bato already solved for its pathway cards — deterministic, templated natural-language generation from structured facts, not an LLM call (`bato/ingest/cards.py` is a working, tested precedent for exactly this: structured node → templated sentence). Approach: a small template library keyed to data conditions (e.g. `ceiling_pct > 75 AND pace_ratio > 1.1` → "Only {left} places left... and it's filling faster than last year"), evaluated against live data at request time. Both projects are Python/FastAPI — worth checking during implementation whether bato's actual card-template code can be adapted rather than rewritten from scratch.
 
 ## 10. Success criteria (for whoever builds this)
 
