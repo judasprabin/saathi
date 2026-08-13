@@ -1,9 +1,11 @@
 # Visa Landscape Navigator — Design Spec
 
-**Status:** Design approved, open technical questions resolved (§9) — ready for implementation planning
-**Date:** 2026-08-13, technical resolution 2026-08-14
+**Status:** Superseded by a repo split — see note below. Design and mockup remain the source of truth for *what* this feature is; implementation now happens in two separate repos.
+**Date:** 2026-08-13, technical resolution 2026-08-14, split 2026-08-14
 **Author:** Prabin Karki, via brainstorming session with Claude
 **Visual reference:** [`diagrams/saathi-landscape-navigator-mockup.html`](../../../diagrams/saathi-landscape-navigator-mockup.html) — the final approved interactive prototype. Open it in a browser; it's the primary spec artifact, this document explains the decisions behind it.
+
+> **Split into two repos (2026-08-14):** this feature's backend and frontend are now built as separate microservices rather than inside saathi — **[`koshi`](https://github.com/judasprabin/koshi)** (backend: extraction, schema, API — no end-user identity, public data only) and **[`lukla`](https://github.com/judasprabin/lukla)** (frontend: the UI described in this spec, served at `saathi.app/landscape` via a shared load balancer). The `docs/superpowers/plans/2026-08-14-visa-landscape-navigator-occupation-slice.md` implementation plan in *this* repo is superseded — its backend tasks (1–5) became koshi's plan, its frontend tasks (6–8) became lukla's plan. This document and the mockup remain accurate for *what* the feature is and *why* each decision was made; koshi's and lukla's own specs cover what changed because of the split (auth model, data sourcing detail, routing).
 
 ---
 

@@ -1,5 +1,7 @@
 # Visa Landscape Navigator — Occupation Slice Implementation Plan
 
+> **SUPERSEDED (2026-08-14):** this feature's backend and frontend now live in separate repos — [`koshi`](https://github.com/judasprabin/koshi) and [`lukla`](https://github.com/judasprabin/lukla) — each with their own design spec and (forthcoming) implementation plan. Tasks 1–5 below (schema, seeds, endpoint, insights) are the direct reference for koshi's first plan; Tasks 6–8 (Next.js scaffold, occupation section, design tokens) are the direct reference for lukla's. Kept here, unexecuted, as historical reference and as the concrete starting point for both new plans — do not execute this plan in the saathi repo.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Build the first real, end-to-end vertical slice of the Visa Landscape Navigator — a working "Your Occupation" section (ceiling-usage gauge, list-status badges, deterministic insight text) backed by a real Postgres-shaped schema and a real FastAPI endpoint, with a Next.js frontend that live-switches between two occupations by fetching from that endpoint.
