@@ -1,0 +1,446 @@
+<style>
+  .viz-root {
+    --surface-1: #17171a; --surface-2: #1e1e22; --page: #0b0b0d;
+    --ink-1: #f5f5f4; --ink-2: #a8a7a2; --ink-muted: #77766f;
+    --grid: #2a2a2d; --hairline: #333336;
+    --s1: #3987e5; --s2: #d95926; --s3: #199e70; --s4: #c98500;
+    --good: #199e70; --warning: #c98500; --critical: #e66767;
+    --accent-bg: rgba(57,135,229,0.09);
+  }
+  .viz-root { background: var(--page); padding: 0; font-family: -apple-system, "Segoe UI", sans-serif; position: relative; }
+  .shell { max-width: 940px; margin: 0 auto; }
+  .jumpnav { position: sticky; top: 0; z-index: 30; background: rgba(11,11,13,0.92); backdrop-filter: blur(6px); border-bottom: 1px solid var(--hairline); display: flex; gap: 4px; padding: 10px 8px; overflow-x: auto; }
+  .jumpnav a { font-size: 11.5px; color: var(--ink-2); text-decoration: none; padding: 6px 12px; border-radius: 7px; white-space: nowrap; }
+  .jumpnav a.on { background: var(--s1); color: #fff; font-weight: 600; }
+  .hero { padding: 24px 8px; border-bottom: 1px solid var(--hairline); margin-bottom: 24px; }
+  .hero-title { font-size: 22px; font-weight: 700; color: var(--ink-1); letter-spacing: -0.01em; }
+  .hero-sub { font-size: 13px; color: var(--ink-muted); margin-top: 4px; }
+  .kpi-row { display: flex; gap: 32px; margin-top: 20px; flex-wrap: wrap; }
+  .kpi .v { font-size: 26px; font-weight: 700; color: var(--ink-1); font-variant-numeric: tabular-nums; letter-spacing: -0.01em; }
+  .kpi .l { font-size: 11px; color: var(--ink-muted); margin-top: 2px; }
+  .kpi .v.accent { color: var(--s1); }
+  .explore-box { background: var(--surface-1); border: 1px solid var(--hairline); border-radius: 14px; padding: 20px 22px; margin: 0 8px 28px; }
+  .explore-label { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; color: var(--s1); margin-bottom: 12px; }
+  .explore-row { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
+  .pill { font-size: 12.5px; padding: 8px 16px; border-radius: 99px; background: var(--surface-2); color: var(--ink-2); border: 1px solid var(--hairline); cursor: pointer; }
+  .pill:hover { border-color: var(--s1); color: var(--ink-1); }
+  .pill.active { background: var(--s1); color: #fff; border-color: var(--s1); font-weight: 600; }
+  .breadcrumb { font-size: 12px; color: var(--ink-muted); margin: 0 8px 6px; }
+  .breadcrumb b { color: var(--ink-1); font-weight: 600; }
+  .section { margin: 0 8px 32px; scroll-margin-top: 56px; }
+  .section-title { font-size: 17px; font-weight: 700; color: var(--ink-1); margin-bottom: 3px; letter-spacing: -0.01em; }
+  .section-sub { font-size: 12px; color: var(--ink-muted); margin-bottom: 16px; }
+  .zoom-tag { display: inline-block; font-size: 9.5px; font-weight: 700; text-transform: uppercase; letter-spacing: .05em; padding: 2px 8px; border-radius: 5px; margin-bottom: 6px; }
+  .zoom-tag.you { background: rgba(57,135,229,0.15); color: var(--s1); }
+  .zoom-tag.all { background: rgba(217,89,38,0.15); color: var(--s2); }
+  .zoom-tag.national { background: rgba(217,89,38,0.15); color: var(--s2); }
+  .zoom-tag.ref { background: rgba(255,255,255,0.06); color: var(--ink-muted); }
+  .panel-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+  .panel { background: var(--surface-1); border: 1px solid var(--hairline); border-radius: 12px; padding: 16px 18px; position: relative; }
+  .panel-h { font-size: 10.5px; text-transform: uppercase; letter-spacing: .05em; color: var(--ink-muted); font-weight: 700; margin-bottom: 12px; display: flex; justify-content: space-between; }
+  .src-tag { font-size: 9px; color: var(--ink-muted); font-weight: 400; text-transform: none; letter-spacing: 0; }
+  .foot { font-size: 10.5px; color: var(--ink-muted); margin-top: 10px; line-height: 1.5; }
+  .insight { display: flex; gap: 8px; align-items: flex-start; background: var(--accent-bg); border-left: 2px solid var(--s1); border-radius: 0 6px 6px 0; padding: 8px 12px; margin-top: 10px; font-size: 11.5px; color: var(--ink-1); line-height: 1.5; }
+  .insight b { color: var(--s1); font-size: 9.5px; text-transform: uppercase; letter-spacing: .04em; display: block; margin-bottom: 2px; }
+  table.cmp { width: 100%; border-collapse: collapse; font-size: 11.5px; }
+  table.cmp th { text-align: left; color: var(--ink-muted); font-weight: 600; font-size: 10px; padding: 6px 7px; border-bottom: 1px solid var(--hairline); }
+  table.cmp td { padding: 7px 7px; border-bottom: 1px solid var(--grid); color: var(--ink-2); }
+  table.cmp td.n { color: var(--ink-1); font-variant-numeric: tabular-nums; font-weight: 500; }
+  table.cmp tr.hi td { background: var(--accent-bg); }
+  .tooltip { position: absolute; pointer-events: none; background: #000; border: 1px solid var(--hairline); border-radius: 6px; padding: 6px 10px; font-size: 11px; color: var(--ink-1); opacity: 0; transition: opacity .1s; white-space: nowrap; z-index: 20; }
+  .tooltip.show { opacity: 1; }
+  .tooltip .tt-l { color: var(--ink-muted); font-size: 9.5px; }
+  .crosshair { stroke: var(--ink-muted); stroke-width: 1; stroke-dasharray: 2,2; opacity: 0; }
+  .crosshair.show { opacity: 1; }
+  .hover-dot { opacity: 0; }
+  .hover-dot.show { opacity: 1; }
+  .hitzone { fill: transparent; cursor: crosshair; }
+  .axis-lbl { fill: var(--ink-muted); font-size: 9px; }
+  .toggle-table { font-size: 10px; color: var(--s1); cursor: pointer; text-decoration: underline; }
+  .data-table { display: none; margin-top: 10px; }
+  .data-table.show { display: block; }
+  .map-state { cursor: pointer; stroke: rgba(255,255,255,0.15); stroke-width: 1; }
+  .map-state.selected { stroke: #fff; stroke-width: 2.5; }
+  .bar-row { display: flex; align-items: center; gap: 10px; padding: 5px 0; }
+  .bar-label { width: 150px; font-size: 11.5px; color: var(--ink-2); flex-shrink: 0; }
+  .bar-label.me { color: var(--ink-1); font-weight: 700; }
+  .bar-track { flex: 1; height: 8px; background: var(--grid); border-radius: 4px; overflow: hidden; }
+  .bar-fill { height: 100%; border-radius: 4px; background: var(--grid); }
+  .bar-fill.me { background: var(--s1); }
+  .bar-value { width: 100px; text-align: right; font-size: 10.5px; color: var(--ink-2); font-variant-numeric: tabular-nums; }
+  .crit-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 4px 16px; font-size: 11.5px; color: var(--ink-2); }
+  .crit-grid dt { color: var(--ink-muted); font-size: 10px; }
+  .crit-grid dd { color: var(--ink-1); margin: 0 0 8px; }
+  .pts-row { display: flex; align-items: center; gap: 10px; padding: 4px 0; font-size: 11.5px; }
+  .pts-row .k { flex: 1; color: var(--ink-2); }
+  .pts-row .v { width: 46px; text-align: right; font-variant-numeric: tabular-nums; color: var(--ink-1); font-weight: 600; }
+  .pts-row.zero .v { color: var(--ink-muted); }
+  .lever { display: flex; align-items: center; gap: 12px; padding: 9px 0; border-bottom: 1px solid var(--grid); }
+  .lever:last-child { border-bottom: none; }
+  .lever .pts { font-size: 15px; font-weight: 700; color: var(--good); width: 40px; }
+  .lever .desc { flex: 1; font-size: 12px; color: var(--ink-1); }
+  .lever .time { font-size: 10.5px; color: var(--ink-muted); }
+</style>
+
+<div class="viz-root">
+<div class="jumpnav" id="jumpnav">
+  <a href="#sec-occ" class="jn on">Occupation</a>
+  <a href="#sec-state" class="jn">State</a>
+  <a href="#sec-options" class="jn">Options</a>
+  <a href="#sec-gap" class="jn">Close the gap</a>
+  <a href="#sec-national" class="jn">National</a>
+  <a href="#sec-ref" class="jn">Reference</a>
+</div>
+
+<div class="shell">
+  <div class="hero">
+    <div class="hero-title">Australia Skilled Migration — the live landscape</div>
+    <div class="hero-sub">195,000 places this program year · updated daily from official sources</div>
+    <div class="kpi-row">
+      <div class="kpi"><div class="v accent">132,200</div><div class="l">Skilled stream places</div></div>
+      <div class="kpi"><div class="v">11,200</div><div class="l">Invited so far this year</div></div>
+      <div class="kpi"><div class="v" style="color:var(--warning)">↑ 8pt</div><div class="l">Avg. threshold rise, 12mo</div></div>
+      <div class="kpi"><div class="v">14</div><div class="l">Days to next round</div></div>
+    </div>
+  </div>
+
+  <div class="explore-box">
+    <div class="explore-label">Explore your own path</div>
+    <div class="explore-row">
+      <span style="font-size:12px; color:var(--ink-muted);">Occupation</span>
+      <div class="pill active" data-occ="swe" onclick="setOccupation('swe')">Software Engineer</div>
+      <div class="pill" data-occ="nurse" onclick="setOccupation('nurse')">Registered Nurse</div>
+      <span style="font-size:12px; color:var(--ink-muted); margin-left:8px;">State</span>
+      <div class="pill active">NSW</div>
+      <span style="font-size:12px; color:var(--ink-muted); margin-left:8px;">Considering</span>
+      <div class="pill active">189</div>
+      <div class="pill active">491</div>
+    </div>
+  </div>
+
+  <div class="breadcrumb">Showing your path for <b id="bc-occ">Software Engineer (261313)</b> · <b>NSW</b> · comparing <b>189</b> and <b>491</b></div>
+
+  <div class="section" id="sec-occ">
+    <span class="zoom-tag you">Your occupation</span>
+    <div class="section-title" id="occ-title">Software Engineer, right now</div>
+    <div class="section-sub">Room left, pace, where invitees landed, and what makes it eligible</div>
+    <div class="panel-grid">
+      <div class="panel">
+        <div class="panel-h">Ceiling usage <span class="src-tag">SkillSelect · verified today</span></div>
+        <div style="display:flex; align-items:center; gap:18px;">
+          <svg width="72" height="72" viewBox="0 0 100 100">
+            <circle cx="50" cy="50" r="42" fill="none" stroke="var(--grid)" stroke-width="9"/>
+            <circle id="gauge-ring" cx="50" cy="50" r="42" fill="none" stroke="var(--s1)" stroke-width="9" stroke-dasharray="216 264" stroke-linecap="round" transform="rotate(-90 50 50)" style="transition: stroke-dasharray .4s;"/>
+            <text id="gauge-pct" x="50" y="56" fill="var(--ink-1)" font-size="16" text-anchor="middle" font-weight="700">82%</text>
+          </svg>
+          <div>
+            <div id="gauge-count" style="font-size:13px; color:var(--ink-1); font-weight:600;">2,624 of 3,200 issued</div>
+            <div id="gauge-badges" style="font-size:11px; margin-top:6px;"></div>
+          </div>
+        </div>
+        <div style="margin-top:12px; padding-top:10px; border-top:1px solid var(--grid); font-size:11px; color:var(--ink-2);">
+          <div style="display:flex; justify-content:space-between; padding:2px 0;"><span>Same point last year</span><span class="n" style="color:var(--ink-1);">68% used</span></div>
+          <div style="display:flex; justify-content:space-between; padding:2px 0;"><span>Pace vs last year</span><span style="color:var(--critical);">↑ faster — ceiling may hit before program year ends</span></div>
+        </div>
+        <div class="insight" id="occ-insight"><b>What this means</b>Only 576 places left this year for this occupation nationally, and it's filling faster than last year.</div>
+      </div>
+      <div class="panel">
+        <div class="panel-h">Where recent invitees' points landed</div>
+        <svg viewBox="0 0 200 75" style="width:100%; height:75px;">
+          <rect x="10" y="46" width="24" height="14" fill="var(--grid)" rx="2" onmousemove="showBarTip(event,this,'60–65 pts','~8% of invitees')" onmouseleave="hideTip()"/>
+          <rect x="44" y="34" width="24" height="26" fill="var(--grid)" rx="2" onmousemove="showBarTip(event,this,'65–70 pts','~19% of invitees')" onmouseleave="hideTip()"/>
+          <rect x="78" y="4" width="24" height="56" fill="var(--s1)" rx="2" onmousemove="showBarTip(event,this,'70–75 pts','~41% of invitees — largest group')" onmouseleave="hideTip()"/>
+          <rect x="112" y="14" width="24" height="46" fill="var(--s1)" rx="2" onmousemove="showBarTip(event,this,'75–80 pts','~34% of invitees')" onmouseleave="hideTip()"/>
+          <rect x="146" y="42" width="24" height="18" fill="var(--grid)" rx="2" onmousemove="showBarTip(event,this,'80–85 pts','~13% of invitees')" onmouseleave="hideTip()"/>
+          <line x1="90" y1="0" x2="90" y2="60" stroke="var(--warning)" stroke-width="1.5" stroke-dasharray="2,2"/>
+          <text x="90" y="10" fill="var(--warning)" font-size="8" text-anchor="middle">median 73</text>
+          <text x="22" y="72" class="axis-lbl" text-anchor="middle">60</text><text x="90" y="72" class="axis-lbl" text-anchor="middle">70</text><text x="158" y="72" class="axis-lbl" text-anchor="middle">80</text>
+        </svg>
+        <div class="insight"><b>What this means</b>Median invitee had 73 points — beating that, not the 85 headline figure, is what actually matters most rounds.</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="section" id="sec-state">
+    <span class="zoom-tag you">Your state</span>
+    <div class="section-title">NSW, for your occupation</div>
+    <div class="section-sub">Full nomination criteria, process, fees, and how the list has moved</div>
+    <div class="panel">
+      <div class="panel-h">NSW 190 nomination — full detail</div>
+      <dl class="crit-grid">
+        <div><dt>Status</dt><dd style="color:var(--good);">✓ Open</dd></div>
+        <div><dt>State fee</dt><dd>$0</dd></div>
+        <div><dt>Points threshold (state-specific)</dt><dd>65 (state's own minimum, before EOI ranking)</dd></div>
+        <div><dt>Job offer required?</dt><dd>No, for this occupation</dd></div>
+        <div><dt>Residency commitment</dt><dd>None — 190 has no residency requirement (unlike 491)</dd></div>
+        <div><dt>Decision time</dt><dd>4–6 weeks after invitation</dd></div>
+        <div><dt>Documents for nomination</dt><dd>Resume, skills assessment, EOI reference #</dd></div>
+        <div><dt>Recent approval pattern</dt><dd>Most complete nominations approved; incomplete evidence is the main rejection cause</dd></div>
+      </dl>
+      <div class="insight"><b>What this means</b>NSW's own 65-point minimum is lower than what you'll actually need to be competitive in the EOI ranking (~75) — the state minimum isn't the real bar.</div>
+    </div>
+
+    <div class="panel" style="margin-top:14px;">
+      <div class="panel-h">NSW list — what actually changed <span class="src-tag">last update: 3 weeks ago</span></div>
+      <svg viewBox="0 0 160 55" style="width:100%; height:55px;" onmousemove="trendHover(event,this,'nsw')" onmouseleave="hideTip()">
+        <line x1="20" y1="8" x2="20" y2="42" stroke="var(--hairline)"/><line x1="20" y1="42" x2="155" y2="42" stroke="var(--hairline)"/>
+        <text x="14" y="12" class="axis-lbl" text-anchor="end">55</text><text x="14" y="45" class="axis-lbl" text-anchor="end">30</text>
+        <polyline points="25,14 65,19 105,27 150,33" fill="none" stroke="var(--s2)" stroke-width="2.5" stroke-linecap="round"/>
+        <circle class="hover-dot" id="nsw-dot" cx="25" cy="14" r="4" fill="var(--s2)" stroke="#000" stroke-width="1.5"/>
+        <line class="crosshair" id="nsw-cross" x1="25" y1="8" x2="25" y2="42"/>
+        <rect class="hitzone" x="20" y="0" width="140" height="55"/>
+      </svg>
+      <div style="font-size:11px; color:var(--ink-2); margin-top:6px;">
+        <div>+ Added recently: Cybersecurity Specialist, Data Engineer</div>
+        <div>− Removed recently: Marketing Specialist, Graphic Designer</div>
+      </div>
+    </div>
+
+    <div class="panel" style="margin-top:14px;">
+      <span class="zoom-tag all" style="margin-bottom:10px;">All states</span>
+      <div class="panel-h">Every state, for Software Engineer — hover any state</div>
+      <div style="display:flex; gap:20px; align-items:center; flex-wrap:wrap;">
+        <svg width="180" height="150" viewBox="0 0 180 150">
+          <rect class="map-state selected" data-s="NSW" data-status="Open" data-note="34 occupations · $0 fee · 4-6wk" x="90" y="60" width="55" height="50" fill="var(--good)" opacity="0.75" onmousemove="mapTip(event,this)" onmouseleave="hideTip()"/>
+          <rect class="map-state" data-s="VIC" data-status="Closed" data-note="Since March · re-opens next FY" x="90" y="112" width="40" height="30" fill="var(--critical)" opacity="0.7" onmousemove="mapTip(event,this)" onmouseleave="hideTip()"/>
+          <rect class="map-state" data-s="QLD" data-status="Limited" data-note="Caps nearly reached · $200 fee" x="120" y="10" width="45" height="48" fill="var(--warning)" opacity="0.7" onmousemove="mapTip(event,this)" onmouseleave="hideTip()"/>
+          <rect class="map-state" data-s="WA" data-status="Open" data-note="41 occupations · $0 fee · 3-5wk" x="10" y="20" width="55" height="90" fill="var(--good)" opacity="0.7" onmousemove="mapTip(event,this)" onmouseleave="hideTip()"/>
+          <rect class="map-state" data-s="SA" data-status="Open" data-note="Fastest decisions, ~3wk · $0 fee" x="68" y="60" width="20" height="50" fill="var(--good)" opacity="0.7" onmousemove="mapTip(event,this)" onmouseleave="hideTip()"/>
+          <rect class="map-state" data-s="TAS" data-status="Closed" data-note="Not accepting EOIs this round" x="105" y="132" width="16" height="16" fill="var(--critical)" opacity="0.7" onmousemove="mapTip(event,this)" onmouseleave="hideTip()"/>
+          <text x="117" y="88" fill="#fff" font-size="10" font-weight="700" text-anchor="middle" style="pointer-events:none;">NSW</text>
+        </svg>
+        <div style="font-size:11px; color:var(--ink-2); display:flex; flex-direction:column; gap:6px;">
+          <div><span style="display:inline-block;width:9px;height:9px;background:var(--good);border-radius:2px;margin-right:6px;"></span>Open — WA, SA, NSW</div>
+          <div><span style="display:inline-block;width:9px;height:9px;background:var(--warning);border-radius:2px;margin-right:6px;"></span>Limited — QLD</div>
+          <div><span style="display:inline-block;width:9px;height:9px;background:var(--critical);border-radius:2px;margin-right:6px;"></span>Closed — VIC, TAS</div>
+        </div>
+      </div>
+      <div class="insight"><b>What this means</b>SA has the fastest decisions and no fee; WA has the most room. NSW is comfortable but not obviously your best option once you look at the full board.</div>
+    </div>
+  </div>
+
+  <div class="section" id="sec-options">
+    <span class="zoom-tag you">Your options</span>
+    <div class="section-title">189 vs 491 — the full comparison</div>
+    <div class="section-sub">Every dimension that actually differs, not just points and time</div>
+    <div class="panel">
+      <table class="cmp">
+        <tr><th></th><th>189 Skilled Independent</th><th>491 Skilled Work Regional</th></tr>
+        <tr><td>Recent threshold</td><td class="n">85 pts</td><td class="n">65 pts</td></tr>
+        <tr><td>Time to grant</td><td class="n">~11 months</td><td class="n">~9 months</td></tr>
+        <tr class="hi"><td><strong style="color:var(--warning);">Time to permanent residency</strong></td><td class="n" style="color:var(--good);">~11 months</td><td class="n" style="color:var(--warning);">~4 years</td></tr>
+        <tr><td>Age limit</td><td class="n">Under 45</td><td class="n">Under 45</td></tr>
+        <tr><td>Work rights while processing</td><td>Bridging visa, full work rights</td><td>Bridging visa, full work rights</td></tr>
+        <tr><td>Family included?</td><td>Partner + dependent children</td><td>Partner + dependent children</td></tr>
+        <tr><td>Where you must live</td><td>Anywhere in Australia</td><td>Designated regional area only</td></tr>
+        <tr><td>Total cost to lodge</td><td class="n">~$5,750</td><td class="n">~$4,900</td></tr>
+      </table>
+      <div class="insight"><b>What this means</b>The two pathways are identical on work rights and family inclusion — the real trade is points, location commitment, and years to permanence, nothing else.</div>
+    </div>
+
+    <div class="panel" style="margin-top:14px;">
+      <span class="zoom-tag all" style="margin-bottom:10px;">All visa types</span>
+      <div class="panel-h">Every pathway this occupation is eligible for</div>
+      <table class="cmp">
+        <tr><th></th><th>189</th><th>190</th><th>491</th><th>482</th><th>186</th></tr>
+        <tr><td>Permanent?</td><td class="n" style="color:var(--good);">Yes</td><td class="n" style="color:var(--good);">Yes</td><td>Provisional</td><td>Temporary</td><td class="n" style="color:var(--good);">Yes</td></tr>
+        <tr><td>Sponsor needed?</td><td>No</td><td>State</td><td>State/family</td><td>Employer</td><td>Employer</td></tr>
+        <tr><td>Threshold</td><td class="n">85</td><td class="n">75</td><td class="n">65</td><td class="n">n/a</td><td class="n">n/a</td></tr>
+        <tr><td>Time to grant</td><td class="n">~11mo</td><td class="n">~14mo</td><td class="n">~9mo</td><td class="n">~3mo</td><td class="n">~7mo</td></tr>
+        <tr><td>Occupation list needed</td><td>MLTSSL</td><td>State list</td><td>Regional list</td><td>Core Skills list</td><td>Any (Direct Entry)</td></tr>
+        <tr><td>Pathway onward</td><td>—</td><td>—</td><td>→ 191 after 3yr</td><td>→ 186 after 2yr</td><td>—</td></tr>
+        <tr><td>Total cost</td><td class="n">~$5,750</td><td class="n">~$5,750</td><td class="n">~$4,900</td><td class="n">~$4,640</td><td class="n">~$4,770</td></tr>
+      </table>
+    </div>
+  </div>
+
+  <div class="section" id="sec-gap">
+    <span class="zoom-tag you">Closing your gap</span>
+    <div class="section-title">Your full points breakdown, then what moves it</div>
+    <div class="section-sub">190 (NSW) needs 75 — here's every criterion, then the fastest levers</div>
+    <div class="panel">
+      <div class="panel-h">Where your 68 points come from</div>
+      <div class="pts-row"><span class="k">Age (25–32)</span><span class="v">30</span></div>
+      <div class="pts-row"><span class="k">English (Competent)</span><span class="v">0</span></div>
+      <div class="pts-row"><span class="k">Skilled employment overseas (3yr)</span><span class="v">10</span></div>
+      <div class="pts-row"><span class="k">Skilled employment in Australia</span><span class="v">0</span></div>
+      <div class="pts-row"><span class="k">Bachelor's degree</span><span class="v">15</span></div>
+      <div class="pts-row"><span class="k">Australian study requirement</span><span class="v">5</span></div>
+      <div class="pts-row zero"><span class="k">Specialist education</span><span class="v">0</span></div>
+      <div class="pts-row zero"><span class="k">Community language (NAATI)</span><span class="v">0</span></div>
+      <div class="pts-row"><span class="k">Regional study</span><span class="v">5</span></div>
+      <div class="pts-row zero"><span class="k">Partner skills</span><span class="v">0</span></div>
+      <div class="pts-row zero"><span class="k">Professional Year</span><span class="v">0</span></div>
+      <div class="pts-row zero"><span class="k">State nomination (190)</span><span class="v">0</span></div>
+      <div style="display:flex; justify-content:space-between; padding-top:8px; margin-top:4px; border-top:1px solid var(--hairline); font-size:12.5px; font-weight:700; color:var(--ink-1);"><span>Total</span><span>68</span></div>
+    </div>
+    <div class="panel" style="margin-top:14px;">
+      <div class="panel-h">Fastest ways to close the 7-point gap</div>
+      <div class="lever"><div class="pts">+10</div><div class="desc">English: Competent → Proficient</div><div class="time">~2–3 months</div></div>
+      <div class="lever"><div class="pts">+5</div><div class="desc">One more year of skilled employment</div><div class="time">12 months</div></div>
+      <div class="lever"><div class="pts">+5</div><div class="desc">NAATI Community Language (CCL)</div><div class="time">~2 months prep</div></div>
+      <div class="lever"><div class="pts">+5</div><div class="desc">Professional Year in Australia</div><div class="time">12 months</div></div>
+      <div class="lever"><div class="pts">+5</div><div class="desc">State nomination (190) — automatic if you apply via 190</div><div class="time">n/a</div></div>
+    </div>
+  </div>
+
+  <div class="section" id="sec-national">
+    <span class="zoom-tag national">Zooming out</span>
+    <div class="section-title">The national picture</div>
+    <div class="section-sub">Beyond your occupation — what's happening across the whole system</div>
+
+    <div class="panel" style="margin-bottom:14px;">
+      <span class="zoom-tag all" style="margin-bottom:10px;">All occupations</span>
+      <div class="panel-h">Ceiling usage, ranked — where yours sits nationally</div>
+      <div class="bar-row"><span class="bar-label me">Software Engineer (you)</span><div class="bar-track"><div class="bar-fill me" style="width:82%"></div></div><span class="bar-value">82% · ↑ trending up</span></div>
+      <div class="bar-row"><span class="bar-label">Civil Engineer</span><div class="bar-track"><div class="bar-fill" style="width:71%"></div></div><span class="bar-value">71% · steady</span></div>
+      <div class="bar-row"><span class="bar-label">Accountant</span><div class="bar-track"><div class="bar-fill" style="width:58%"></div></div><span class="bar-value">58% · steady</span></div>
+      <div class="bar-row"><span class="bar-label">Electrician</span><div class="bar-track"><div class="bar-fill" style="width:44%"></div></div><span class="bar-value">44% · ↓ easing</span></div>
+      <div class="bar-row"><span class="bar-label">Registered Nurse</span><div class="bar-track"><div class="bar-fill" style="width:31%"></div></div><span class="bar-value">31% · steady</span></div>
+      <div class="bar-row"><span class="bar-label">Cook</span><div class="bar-track"><div class="bar-fill" style="width:12%"></div></div><span class="bar-value">12% · ↓ easing</span></div>
+      <div class="foot">Direction shows 3-round momentum, not just current level. Search shows all 190+, filterable by category (IT, health, engineering, trades).</div>
+    </div>
+
+    <div class="panel" style="margin-bottom:14px;">
+      <div class="panel-h">Application funnel, this program year — by pathway</div>
+      <div style="display:flex; align-items:center; gap:10px; margin-bottom:10px;">
+        <div style="width:100px; height:30px; background:var(--s1); clip-path:polygon(0 0,100% 0,85% 100%,15% 100%);"></div>
+        <div style="font-size:10.5px; color:var(--ink-2);">EOI submitted<br><strong style="color:var(--ink-1); font-size:13px;">18,400</strong></div>
+        <div style="width:72px; height:30px; background:var(--s2); clip-path:polygon(0 0,100% 0,80% 100%,20% 100%);"></div>
+        <div style="font-size:10.5px; color:var(--ink-2);">Invited<br><strong style="color:var(--ink-1); font-size:13px;">11,200 (61%)</strong></div>
+        <div style="width:48px; height:30px; background:var(--good); clip-path:polygon(0 0,100% 0,70% 100%,30% 100%);"></div>
+        <div style="font-size:10.5px; color:var(--ink-2);">Granted<br><strong style="color:var(--ink-1); font-size:13px;">9,600 (86%)</strong></div>
+      </div>
+      <table class="cmp">
+        <tr><th>By pathway</th><th>Submitted → Invited</th><th>Invited → Granted</th></tr>
+        <tr><td>189</td><td class="n">48%</td><td class="n">91%</td></tr>
+        <tr><td>190</td><td class="n">55%</td><td class="n">89%</td></tr>
+        <tr><td>491</td><td class="n">74%</td><td class="n">83%</td></tr>
+      </table>
+      <div class="foot">Invited→Granted is lower for 491 — more post-invitation document issues on the regional pathway, per published stats.</div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-h">5-year threshold trend, all pathways <span class="src-tag">hover the line</span></div>
+      <svg viewBox="0 0 190 75" style="width:100%; height:75px;" onmousemove="trendHover(event,this,'threshold')" onmouseleave="hideTip()">
+        <line x1="22" y1="8" x2="22" y2="55" stroke="var(--hairline)"/><line x1="22" y1="55" x2="185" y2="55" stroke="var(--hairline)"/>
+        <text x="16" y="12" class="axis-lbl" text-anchor="end">90</text><text x="16" y="33" class="axis-lbl" text-anchor="end">75</text><text x="16" y="58" class="axis-lbl" text-anchor="end">60</text>
+        <line x1="100" y1="8" x2="100" y2="55" stroke="var(--critical)" stroke-width="1" stroke-dasharray="2,2" opacity="0.6"/>
+        <text x="100" y="66" fill="var(--critical)" font-size="8" text-anchor="middle">program cut announced</text>
+        <polyline points="30,45 65,38 100,30 135,22 175,14" fill="none" stroke="var(--s1)" stroke-width="2"/>
+        <polyline points="30,50 65,47 100,41 135,34 175,28" fill="none" stroke="var(--s2)" stroke-width="2"/>
+        <polyline points="30,53 65,52 100,50 135,48 175,46" fill="none" stroke="var(--s3)" stroke-width="2"/>
+        <line class="crosshair" id="thresh-cross" x1="30" y1="8" x2="30" y2="55"/>
+        <rect class="hitzone" x="22" y="0" width="163" height="75"/>
+      </svg>
+      <div style="display:flex; gap:16px; margin-top:8px; font-size:11px; color:var(--ink-2);">
+        <span><span style="display:inline-block;width:10px;height:2px;background:var(--s1);margin-right:5px;"></span>189</span>
+        <span><span style="display:inline-block;width:10px;height:2px;background:var(--s2);margin-right:5px;"></span>190</span>
+        <span><span style="display:inline-block;width:10px;height:2px;background:var(--s3);margin-right:5px;"></span>491</span>
+      </div>
+      <div class="toggle-table" onclick="toggleTable('thresh-table')">View as table ↓</div>
+      <table class="cmp data-table" id="thresh-table">
+        <tr><th>Round</th><th>189</th><th>190</th><th>491</th></tr>
+        <tr><td>Aug '22</td><td class="n">70</td><td class="n">62</td><td class="n">58</td></tr>
+        <tr><td>Aug '23</td><td class="n">75</td><td class="n">65</td><td class="n">60</td></tr>
+        <tr><td>Aug '24</td><td class="n">78</td><td class="n">69</td><td class="n">62</td></tr>
+        <tr><td>Aug '25</td><td class="n">82</td><td class="n">72</td><td class="n">64</td></tr>
+        <tr><td>Aug '26</td><td class="n">85</td><td class="n">75</td><td class="n">65</td></tr>
+      </table>
+    </div>
+  </div>
+
+  <div class="section" id="sec-ref">
+    <span class="zoom-tag ref">Reference</span>
+    <div class="section-title">English test &amp; skills assessment, in full</div>
+    <div class="section-sub">Standing reference, not specific to you</div>
+    <div class="panel">
+      <div class="panel-h">All accepted tests</div>
+      <table class="cmp">
+        <tr><th>Test</th><th>Competent</th><th>Proficient</th><th>Superior</th><th>Cost</th><th>Valid for</th></tr>
+        <tr><td>IELTS</td><td class="n">6.0</td><td class="n">7.0</td><td class="n">8.0</td><td class="n">$385</td><td class="n">3yr</td></tr>
+        <tr><td>PTE Academic</td><td class="n">50</td><td class="n">65</td><td class="n">79</td><td class="n">$375</td><td class="n">3yr</td></tr>
+        <tr><td>TOEFL iBT</td><td class="n">12/13/21/18</td><td class="n">24/24/27/23</td><td class="n">28/28/30/28</td><td class="n">$300</td><td class="n">2yr</td></tr>
+        <tr><td>OET</td><td class="n">B</td><td class="n">B</td><td class="n">A</td><td class="n">$587</td><td class="n">2yr</td></tr>
+      </table>
+    </div>
+    <div class="panel" style="margin-top:14px;">
+      <div class="panel-h">Skills assessing bodies</div>
+      <table class="cmp">
+        <tr><th>Body</th><th>Occupations</th><th>Turnaround</th><th>Cost</th></tr>
+        <tr><td>ACS</td><td>IT / software</td><td class="n">8–12wk</td><td class="n">$500</td></tr>
+        <tr><td>Engineers Australia</td><td>Engineering</td><td class="n">12–16wk</td><td class="n">$700</td></tr>
+        <tr><td>VETASSESS</td><td>Most other occupations</td><td class="n">10–14wk</td><td class="n">$1,000</td></tr>
+        <tr><td>TRA</td><td>Trades</td><td class="n">12–16wk</td><td class="n">$1,200</td></tr>
+      </table>
+    </div>
+  </div>
+
+</div>
+<div class="tooltip" id="tooltip"></div>
+</div>
+
+<script>
+const OCC = {
+  swe: { name: "Software Engineer", code: "261313", pct: 82, issued: "2,624", cap: "3,200", left: 576, lists: ["MLTSSL","Regional list"], dash: "216 264" },
+  nurse: { name: "Registered Nurse", code: "254111", pct: 31, issued: "992", cap: "3,200", left: 2208, lists: ["MLTSSL","Priority"], dash: "82 264" }
+};
+function setOccupation(key){
+  const o = OCC[key];
+  document.querySelectorAll('[data-occ]').forEach(p => p.classList.toggle('active', p.dataset.occ === key));
+  document.getElementById('bc-occ').textContent = o.name + " (" + o.code + ")";
+  document.getElementById('occ-title').textContent = o.name + ", right now";
+  document.getElementById('gauge-pct').textContent = o.pct + "%";
+  document.getElementById('gauge-ring').setAttribute('stroke-dasharray', o.dash);
+  document.getElementById('gauge-count').textContent = o.issued + " of " + o.cap + " issued";
+  document.getElementById('gauge-badges').innerHTML = o.lists.map(l =>
+    '<span style="display:inline-flex;font-size:10px;padding:2px 8px;border-radius:99px;background:rgba(25,158,112,0.15);color:var(--good);margin-right:4px;">✓ '+l+'</span>').join('');
+  document.getElementById('occ-insight').innerHTML = '<b>What this means</b>' + o.left.toLocaleString() + ' places left this year for this occupation nationally.';
+}
+const tip = document.getElementById('tooltip');
+function showBarTip(e, el, title, sub){
+  const rect = e.currentTarget.closest('.panel').getBoundingClientRect();
+  const svgRect = e.currentTarget.getBoundingClientRect();
+  tip.innerHTML = '<div class="tt-l">'+title+'</div><div>'+sub+'</div>';
+  tip.style.left = (svgRect.left - rect.left + svgRect.width/2 - 40) + 'px';
+  tip.style.top = (svgRect.top - rect.top - 44) + 'px';
+  tip.classList.add('show');
+}
+function mapTip(e, el){
+  const rect = e.currentTarget.closest('.panel').getBoundingClientRect();
+  const elRect = e.currentTarget.getBoundingClientRect();
+  tip.innerHTML = '<div class="tt-l">'+el.dataset.s+' — '+el.dataset.status+'</div><div>'+el.dataset.note+'</div>';
+  tip.style.left = (elRect.left - rect.left) + 'px';
+  tip.style.top = (elRect.top - rect.top - 40) + 'px';
+  tip.classList.add('show');
+}
+function hideTip(){ tip.classList.remove('show'); document.querySelectorAll('.crosshair,.hover-dot').forEach(c=>c.classList.remove('show')); }
+function trendHover(e, svg, which){
+  const pt = svg.createSVGPoint(); pt.x = e.clientX; pt.y = e.clientY;
+  const loc = pt.matrixTransform(svg.getScreenCTM().inverse());
+  if (which === 'nsw'){
+    const dot = document.getElementById('nsw-dot'), cross = document.getElementById('nsw-cross');
+    const xs=[25,65,105,150], vals=[52,45,38,34];
+    let i = xs.reduce((best,x,idx)=> Math.abs(x-loc.x)<Math.abs(xs[best]-loc.x)?idx:best, 0);
+    dot.setAttribute('cx', xs[i]); dot.classList.add('show');
+    cross.setAttribute('x1', xs[i]); cross.setAttribute('x2', xs[i]); cross.classList.add('show');
+    tip.innerHTML = '<div class="tt-l">NSW occupations open</div><div>'+vals[i]+'</div>';
+    tip.style.left = (xs[i] - 30) + 'px'; tip.style.top = '-10px'; tip.classList.add('show');
+  } else {
+    const cross = document.getElementById('thresh-cross');
+    const xs=[30,65,100,135,175], vals=[70,75,78,82,85], rounds=["Aug '22","Aug '23","Aug '24","Aug '25","Aug '26"];
+    let i = xs.reduce((best,x,idx)=> Math.abs(x-loc.x)<Math.abs(xs[best]-loc.x)?idx:best, 0);
+    cross.setAttribute('x1', xs[i]); cross.setAttribute('x2', xs[i]); cross.classList.add('show');
+    tip.innerHTML = '<div class="tt-l">189 · '+rounds[i]+'</div><div>'+vals[i]+' points</div>';
+    tip.style.left = (xs[i] - 30) + 'px'; tip.style.top = '-8px'; tip.classList.add('show');
+  }
+}
+function toggleTable(id){ document.getElementById(id).classList.toggle('show'); }
+const sections = document.querySelectorAll('.section');
+const links = document.querySelectorAll('.jn');
+window.addEventListener('scroll', () => {
+  let current = sections[0].id;
+  sections.forEach(s => { if (window.scrollY >= s.offsetTop - 80) current = s.id; });
+  links.forEach(l => l.classList.toggle('on', l.getAttribute('href') === '#'+current));
+}, {passive:true});
+</script>
