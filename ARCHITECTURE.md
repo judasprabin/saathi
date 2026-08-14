@@ -296,7 +296,7 @@ saathi/                              # This repo — frontend + F1/F2/F3 + F4 in
                     │  /explain    F4a RAG │   │    │  /v1/.../documents   │
                     │                      │   │    │  /v1/.../confirmations│
                     └──────────┬───────────┘   │    │                      │
-                               │               │    │  Gap-resolution engine│
+                               │               │    │  Claude tool-use loop │
                     ┌──────────▼──────────┐    │    │  scan/extract/fill/  │
                     │  CLOUD SQL           │    │    │  transliterate tools │
                     │  (saathi's own DB)    │    │    └──────────┬───────────┘
@@ -692,7 +692,7 @@ Saathi does **not** implement classify/extract/validate/transliterate/fill. It c
 │     └────────────────────┴──────────────────────────────────────┘   │
 │                                                                      │
 │  4. User confirms/corrects → saathi BFF: POST .../confirmations      │
-│     (resumes manaslu's paused gap-resolution session)                            │
+│     (resumes manaslu's paused agent loop)                            │
 │                                                                      │
 │  5. GET .../artifacts/{id} → signed URL to filled PDF + audit annex  │
 └─────────────────────────────────────────────────────────────────────┘
